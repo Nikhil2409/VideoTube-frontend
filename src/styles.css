@@ -1,3 +1,8 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+/* General Styles */
 body {
   font-family: Arial, sans-serif;
   background-color: #f4f4f4;
@@ -6,9 +11,10 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
+  min-height: 100vh;
 }
 
+/* Registration Form Container */
 .register-container {
   background: white;
   padding: 50px 60px;
@@ -18,28 +24,39 @@ body {
   text-align: center;
 }
 
+/* Input Fields */
 input {
   width: 100%;
   padding: 10px;
   margin: 10px 0;
   border: 1px solid #ccc;
   border-radius: 5px;
+  outline: none;
+  transition: border-color 0.3s;
 }
 
+input:focus {
+  border-color: #007bff;
+}
+
+/* Buttons */
 button {
   width: 100%;
   padding: 10px;
+  margin-top: 20px;
   background-color: #007bff;
   color: white;
   border: none;
   border-radius: 5px;
   cursor: pointer;
+  transition: background-color 0.3s;
 }
 
 button:hover {
   background-color: #0056b3;
 }
 
+/* Success & Error Messages */
 .success {
   color: green;
   font-size: 14px;
@@ -50,7 +67,7 @@ button:hover {
   font-size: 14px;
 }
 
-/* New styles for image upload */
+/* Image Upload Section */
 .image-preview-section {
   margin-bottom: 15px;
   display: flex;
@@ -90,6 +107,7 @@ button:hover {
   object-fit: cover;
 }
 
+/* File Input */
 .file-inputs {
   display: flex;
   flex-direction: column;
@@ -113,4 +131,21 @@ input[type="file"] {
   padding: 8px;
   background-color: #f9f9f9;
   cursor: pointer;
+}
+
+/* Theming Variables */
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --primary: oklch(0.205 0 0);
+  --border: oklch(0.922 0 0);
+  --ring: oklch(0.87 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --border: oklch(0.269 0 0);
 }
