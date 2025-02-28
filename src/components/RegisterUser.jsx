@@ -133,6 +133,11 @@ const RegisterUser = () => {
     }
   };
 
+  // Handle navigation to login page
+  const goToLogin = () => {
+    navigate("/");
+  };
+
   return (
     <div>
       <div style={styles.registerContainer}>
@@ -230,6 +235,17 @@ const RegisterUser = () => {
             {isLoading ? "Registering..." : "Register"}
           </button>
         </form>
+
+        {/* Added Login Navigation */}
+        <div style={styles.loginSection}>
+          <p>Already have an account?</p>
+          <button 
+            onClick={goToLogin}
+            style={styles.loginButton}
+          >
+            Go to Login
+          </button>
+        </div>
       </div>
 
       {/* Add the global styling */}
@@ -365,6 +381,22 @@ const styles = {
     width: '100%',
     boxSizing: 'border-box',
   },
+  // New styles for login section
+  loginSection: {
+    marginTop: '20px',
+    borderTop: '1px solid #eee',
+    paddingTop: '20px',
+  },
+  loginButton: {
+    backgroundColor: '#6c757d',
+    color: 'white',
+    border: 'none',
+    borderRadius: '5px',
+    padding: '8px 15px',
+    cursor: 'pointer',
+    transition: 'background-color 0.3s',
+    marginTop: '5px',
+  }
 };
 
 export default RegisterUser;
