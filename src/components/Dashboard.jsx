@@ -19,7 +19,7 @@ function Dashboard() {
   const [activeTab, setActiveTab] = useState("videos");
 
   // Mock data for each model
-  const modelData = {
+  let modelData = {
     videos: [
       { id: 1, title: "React Hooks Tutorial", views: 1287, likes: 142, comments: 28, duration: "10:25", date: "3 days ago" },
       { id: 2, title: "Building a YouTube Clone", views: 876, likes: 95, comments: 17, duration: "15:10", date: "1 week ago" },
@@ -50,12 +50,19 @@ function Dashboard() {
       { id: 2, content: "What topics would you like to see next? Reply with your suggestions!", likes: 18, retweets: 3, date: "4 days ago" },
       { id: 3, content: "Streaming live coding session tomorrow at 8PM EST. Don't miss it!", likes: 32, retweets: 12, date: "1 week ago" }
     ],
-    subscriptions: [
-      { id: 1, channelName: "JavaScript Mastery", subscribers: "250K", date: "Subscribed 2 months ago" },
-      { id: 2, channelName: "CSS Wizard", subscribers: "125K", date: "Subscribed 3 weeks ago" },
-      { id: 3, channelName: "Backend Guru", subscribers: "75K", date: "Subscribed 1 week ago" }
-    ]
+    subscribers: [
+      { id: 1, name: "Alice Johnson", date: "Subscribed 3 months ago" },
+      { id: 2, name: "Bob Smith", date: "Subscribed 1 month ago" },
+      { id: 3, name: "Charlie Davis", date: "Subscribed 2 weeks ago" },
+      { id: 4, name: "David Lee", date: "Subscribed 5 days ago" },
+      { id: 5, name: "Emma Wilson", date: "Subscribed yesterday" }
+    ]    
   };
+
+  function removeSubscriber(id) {
+    modelData.subscribers = modelData.subscribers.filter(subscriber => subscriber.id !== id);
+    renderDashboard();
+}
 
   if (!user) {
     navigate("/login");
@@ -143,12 +150,12 @@ function Dashboard() {
               </CardContent>
             </Card>
 
-            <Card className="shadow-sm" onClick={() => setActiveTab("subscriptions")}>
+            <Card className="shadow-sm" onClick={() => setActiveTab("subscribers")}>
               <CardContent className="p-4 flex items-center space-x-2 cursor-pointer">
                 <Bell className="h-4 w-4 text-yellow-600" />
                 <div>
                   <p className="text-sm font-medium">Subs</p>
-                  <p className="text-2xl font-bold">{modelData.subscriptions.length}</p>
+                  <p className="text-2xl font-bold">{modelData.subscribers.length}</p>
                 </div>
               </CardContent>
             </Card>
@@ -163,7 +170,7 @@ function Dashboard() {
               <TabsTrigger value="playlists">Playlists</TabsTrigger>
               <TabsTrigger value="users">Users</TabsTrigger>
               <TabsTrigger value="tweets">Tweets</TabsTrigger>
-              <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
+              <TabsTrigger value="subscribers">Subscribers</TabsTrigger>
             </TabsList>
             
             {/* Videos Tab */}
@@ -331,30 +338,31 @@ function Dashboard() {
               </Card>
             </TabsContent>
 
-            {/* Subscriptions Tab */}
-            <TabsContent value="subscriptions" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-xl">Your Subscriptions</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {modelData.subscriptions.map(sub => (
-                      <div key={sub.id} className="flex items-center justify-between border-b border-gray-200 pb-3">
-                        <div className="flex items-center">
-                          <div className="bg-gray-300 h-10 w-10 rounded-full mr-3"></div>
-                          <div>
-                            <p className="font-medium">{sub.channelName}</p>
-                            <p className="text-sm text-gray-500">{sub.subscribers} subscribers · {sub.date}</p>
+            {/* subscribers Tab */}
+            <TabsContent value="subscribers" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-xl">Your Subscribers</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                        {modelData.subscribers.map(sub => (
+                          <div key={sub.id} className="flex items-center justify-between border-b border-gray-200 pb-3">
+                            <div className="flex items-center">
+                              <div className="bg-gray-300 h-10 w-10 rounded-full mr-3"></div>
+                              <div>
+                                <p className="font-medium">{sub.name}</p>
+                                <p className="text-sm text-gray-500">Subscribed on {sub.date}</p>
+                              </div>
+                            </div>
+                            <Button variant="outline" size="sm" onClick={() => removeSubscriber(sub.id)}>Remove</Button>
                           </div>
-                        </div>
-                        <Button variant="outline" size="sm">Unsubscribe</Button>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                        ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
           </Tabs>
         </div>
       </div>
