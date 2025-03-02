@@ -2,7 +2,8 @@ import { Routes, Route } from "react-router-dom";
 import AuthPage from "./components/Authpage.jsx";
 import RegisterUser from "./components/RegisterUser";
 import Dashboard from "./components/Dashboard.jsx";
-import Profile from "./components/Profile";
+import Profile from "./components/Profile/Profile.jsx";
+import EditProfile from "./components/Profile/EditProfile.jsx";
 //import VideoUpload from "./components/VideoUpload";
 //import VideoPlayer from "./components/VideoPlayer";
 //import VideoEdit from "./components/VideoEdit";
@@ -28,6 +29,7 @@ function App() {
 
       {/* User Profile */}
       <Route path="/profile" element={<Profile />} />
+      <Route path="/edit-profile" element={<EditProfile />} />
     </Routes>
   );
 }
