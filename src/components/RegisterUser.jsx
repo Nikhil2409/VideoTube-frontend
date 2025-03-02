@@ -9,9 +9,6 @@ const RegisterUser = () => {
     email: "",
     username: "",
     password: "",
-  });
-
-  const [files, setFiles] = useState({
     avatar: null,
     coverImage: null,
   });
@@ -40,10 +37,10 @@ const RegisterUser = () => {
 
     if (!file) return;
 
-    // Store the file
-    setFiles((prev) => ({
+    // Store the file in formData
+    setFormData(prev => ({
       ...prev,
-      [name]: file,
+      [name]: file
     }));
 
     // Create and store preview URL
@@ -58,7 +55,7 @@ const RegisterUser = () => {
   };
 
   const validateForm = () => {
-    if (!formData.fullName || !formData.email || !formData.username || !formData.password || !files.avatar) {
+    if (!formData.fullName || !formData.email || !formData.username || !formData.password || !formData.avatar) {
       setError("All fields including profile picture are required.");
       return false;
     }
@@ -95,13 +92,22 @@ const RegisterUser = () => {
 
       // Append text fields
       Object.entries(formData).forEach(([key, value]) => {
-        formDataToSend.append(key, value);
+        if (key !== 'avatar' && key !== 'coverImage') {
+          formDataToSend.append(key, value);
+        }
       });
 
       // Append files
-      formDataToSend.append("avatar", files.avatar);
-      if (files.coverImage) {
-        formDataToSend.append("coverImage", files.coverImage);
+      if (formData.avatar) {
+        formDataToSend.append("avatar", formData.avatar);
+      }
+      if (formData.coverImage) {
+        formDataToSend.append("coverImage", formData.coverImage);
+      }
+
+      console.log("FormData entries:");
+      for (let [key, value] of formDataToSend.entries()) {
+        console.log(key, value);
       }
 
       const response = await axios.post(
@@ -164,7 +170,7 @@ const RegisterUser = () => {
           {/* File Inputs */}
           <div style={styles.fileInputs}>
             <div style={styles.fileInputGroup}>
-              <label htmlFor="avatar" style={styles.fileInputLabel}>Profile Picture *</label>
+              <label htmlFor="avatar" style={styles.fileInputLabel}>Avatar</label>
               <input 
                 type="file" 
                 id="avatar" 
@@ -381,7 +387,6 @@ const styles = {
     width: '100%',
     boxSizing: 'border-box',
   },
-  // New styles for login section
   loginSection: {
     marginTop: '20px',
     borderTop: '1px solid #eee',
