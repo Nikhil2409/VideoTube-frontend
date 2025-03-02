@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
 function AuthPage() {
-  const { login } = useAuth();
+  const { login, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -11,6 +11,7 @@ function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleAuth = async (endpoint) => {
+    console.log("handleAuth called");
     try {
       setIsLoading(true);
       setMessage("");
@@ -44,9 +45,15 @@ function AuthPage() {
       console.log("Response Data:", data);
       
       if (data && data.data && data.data.accessToken) {
-        login(data.data.accessToken);
-        setMessage("Success! You are logged in.");
-        setTimeout(() => navigate("/dashboard"), 1000);
+        // Call login function from AuthContext
+        const loginSuccess = login(data.data.accessToken);
+        
+        if (loginSuccess) {
+          setMessage("Success! You are logged in.");
+          navigate("/dashboard");
+        } else {
+          setMessage("Login failed. Please try again.");
+        }
       } else {
         setMessage("Login successful but token was not received.");
       }
@@ -57,6 +64,14 @@ function AuthPage() {
       setIsLoading(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-6">

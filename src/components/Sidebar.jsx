@@ -21,7 +21,6 @@ function Sidebar() {
 
   return (
     <div className="w-64 bg-white shadow-lg h-screen p-6 flex flex-col">
-      <h2 className="text-2xl font-bold mb-6">Dashboard</h2>
       <nav className="flex flex-col gap-4">
         <NavLink
           to="/dashboard"
@@ -37,7 +36,7 @@ function Sidebar() {
             `flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 ${isActive ? "bg-gray-200" : ""}`
           }
         >
-          <User className="w-5 h-5" /> Profile
+          <User className="w-5 h-5" onClick={() => navigate("/profile")} /> Profile
         </NavLink>
       </nav>
       <div className="mt-auto">
