@@ -25,7 +25,7 @@ export const AuthProvider = ({ children }) => {
           
           setUser({
             accessToken: token,
-            id: payload.id || payload.sub,
+            id: payload._id || payload.id || payload.sub, // Include _id as well
             username: payload.username,
             email: payload.email
           });
@@ -57,7 +57,7 @@ export const AuthProvider = ({ children }) => {
       
       const userData = {
         accessToken: token,
-        id: payload.id || payload.sub,
+        id: payload._id || payload.id || payload.sub, // Include _id as well
         username: payload.username,
         email: payload.email
       };
@@ -69,6 +69,7 @@ export const AuthProvider = ({ children }) => {
       return false;
     }
   };
+
   // Logout function - remove token and clear user state
   const logout = () => {
     Cookies.remove("accessToken");

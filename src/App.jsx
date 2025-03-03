@@ -4,7 +4,8 @@ import RegisterUser from "./components/RegisterUser";
 import Dashboard from "./components/Dashboard.jsx";
 import Profile from "./components/Profile/Profile.jsx";
 import EditProfile from "./components/Profile/EditProfile.jsx";
-//import VideoUpload from "./components/VideoUpload";
+import Channel from "./components/Channel/Channel.jsx"
+import VideoUpload from "./components/video/VideoUpload.jsx";
 //import VideoPlayer from "./components/VideoPlayer";
 //import VideoEdit from "./components/VideoEdit";
 //import Explore from "./components/Explore";
@@ -30,11 +31,14 @@ function App() {
       {/* User Profile */}
       <Route path="/profile" element={<Profile />} />
       <Route path="/edit-profile" element={<EditProfile />} />
+      <Route path="/c/:username" element={<Channel />} /> 
+
+      <Route path="/VideoUpload" element={<VideoUpload />} />
     </Routes>
   );
 }
 
-/*         <Route path="/channel/:username" element={<ChannelView />} /> 
+/*        
           
           <Route path="/upload" element={<VideoUpload />} />
           <Route path="/video/:videoId" element={<VideoPlayer />} />

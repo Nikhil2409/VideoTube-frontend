@@ -14,6 +14,13 @@ import { Button } from "../ui/button.jsx";
 
 const Profile = () => {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [subscriber, setSubscriber] = useState({
+      subscribers: [],
+    });
+  const [videos, setVideo] = useState({
+      videos: [],
+  });
+  
   const navigate = useNavigate();
   const { logout } = useAuth();
 
@@ -29,11 +36,9 @@ const Profile = () => {
     stats: {
       totalLikes: "",
       totalViews: "",
-      totalVideos: "",
-      totalSubscribers: "",
     },
   });
-
+  const accessToken = user?.accessToken;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -41,7 +46,36 @@ const Profile = () => {
     baseURL: "http://localhost:3900",
     withCredentials: true,
   });
+  const username = user?.username;
+  useEffect(() => {
+    const fetchSubscribers = async () => {
+      try {
+        const subscribersResponse = await api.get(`/api/v1/subscriptions/u/${username}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        setSubscriber(subscribersResponse.data?.data?.subscribers);
+      } catch (err) {
+        console.error("Error fetching subscribers:", err);
+      }
+    };
 
+    fetchSubscribers();
+  }, [username, accessToken]);
+
+  useEffect(() => {
+    const fetchVideos = async () => {
+      try{
+      const videoResponse = await api.get(`/api/v1/videos/user/${username}`,{
+        headers: { Authorization: `Bearer ${accessToken}`  },
+      });
+      setVideo(videoResponse?.data?.videos);
+      } catch (err) {
+        console.error("Error fetching videos:", err);
+      }
+    };
+
+    fetchVideos();
+  }, [username, accessToken]);
   // Function to generate dummy watch history
   const getDummyWatchHistory = () => {
     return [
@@ -382,7 +416,7 @@ const Profile = () => {
                     Total Videos
                   </span>
                   <span className="font-semibold bg-white px-3 py-1 rounded-lg text-center min-w-16 shadow-sm text-blue-700">
-                    {user.stats?.totalVideos || 0}
+                    {videos?.length || 0}
                   </span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm">
@@ -390,7 +424,7 @@ const Profile = () => {
                     Total Subscribers
                   </span>
                   <span className="font-semibold bg-white px-3 py-1 rounded-lg text-center min-w-16 shadow-sm text-blue-700">
-                    {user.stats?.totalSubscribers || "N/A"}
+                    {subscriber?.length || "N/A"}
                   </span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm">
