@@ -18,7 +18,7 @@ function Navbar() {
 
   return (
     <div className="bg-white shadow-md p-4 flex justify-between items-center">
-      <h1 className="text-xl font-bold">Dashboard</h1>
+      <h1 className="text-xl font-bold"></h1>
       
       <form onSubmit={handleSearch} className="flex-1 max-w-md mx-4">
         <div className="relative">

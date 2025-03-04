@@ -15,8 +15,11 @@ import {
   Twitter,
   Bell,
   RefreshCw,
+  AlertCircle,
+  Compass,
 } from "lucide-react";
 import axios from "axios";
+import { toast } from "react-hot-toast"; // Assuming toast is available for notifications
 
 // Create API instance outside component to avoid recreation
 const api = axios.create({
@@ -58,9 +61,11 @@ function Dashboard() {
     playlists: [],
     subscribers: [],
     tweets: [],
+    comments: [],
+    watchHistory: [],
   });
 
-  const { videos, likedVideos, playlists, subscribers, tweets } = dashboardData;
+  const { videos, likedVideos, playlists, subscribers, tweets, comments, watchHistory } = dashboardData;
 
   const userId = user?.id;
   const accessToken = user?.accessToken;
@@ -75,31 +80,62 @@ function Dashboard() {
     const signal = controller.signal;
     
     try {
+      // Fetch subscribers
       const subscribersResponse = await api.get(`/api/v1/subscriptions/u/${username}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
         signal,
       });
 
-      const videoResponse = await api.get(`/api/v1/videos/user/${username}`,{
+      // Fetch videos
+      const videoResponse = await api.get(`/api/v1/videos/user/${username}`, {
         headers: { Authorization: `Bearer ${accessToken}`  },
         signal,
       });
-    
-      //console.log(subscribersResponse);
-      console.log(videoResponse);
+
+      // // Fetch liked videos - update this endpoint based on your API
+      // const likedVideosResponse = await api.get(`/api/v1/videos/liked`, {
+      //   headers: { Authorization: `Bearer ${accessToken}` },
+      //   signal,
+      // }).catch(() => ({ data: { videos: [] }}));
+
+      // Fetch comments - update this endpoint based on your API
+      // const commentsResponse = await api.get(`/api/v1/comments/user/${username}`, {
+      //   headers: { Authorization: `Bearer ${accessToken}` },
+      //   signal,
+      // }).catch(() => ({ data: { comments: [] }}));
+
+      // Fetch watch history - update this endpoint based on your API
+      // const historyResponse = await api.get(`/api/v1/history`, {
+      //   headers: { Authorization: `Bearer ${accessToken}` },
+      //   signal,
+      // }).catch(() => ({ data: { history: [] }}));
+
+      // Update dashboard data
       setDashboardData(prevData => ({
         ...prevData,
         subscribers: subscribersResponse.data?.data?.subscribers || dummyData.subscribers,
         videos: videoResponse?.data?.videos || dummyData.videos,
-        likedVideos: dummyData.likedVideos,
-        playlists: dummyData.playlists,
-        tweets: dummyData.tweets,
+        likedVideos: /*likedVideosResponse?.data?.videos ||*/ dummyData.likedVideos,
+        comments: /*commentsResponse?.data?.comments || */ [],
+        watchHistory: /*historyResponse?.data?.history || */[],
+        playlists: dummyData.playlists, // Replace with actual API call when available
+        tweets: dummyData.tweets, // Replace with actual API call when available
       }));
 
+      // Update channel stats
+      setChannelStats({
+        totalVideos: videoResponse?.data?.videos?.length || 0,
+        subscriberCount: subscribersResponse.data?.data?.subscribers?.length || 0,
+        //commentCount: commentsResponse?.data?.comments?.length || 0,
+        //watchHistory: historyResponse?.data?.history || [],
+      });
+
       setLastRefreshed(new Date());
+      if (showLoading) toast.success("Dashboard data refreshed");
     } catch (error) {
       if (error.name !== 'AbortError') {
         console.error("Error fetching dashboard data:", error);
+        toast.error("Failed to refresh dashboard data");
         // Use dummy data if API call fails
         setDashboardData(dummyData);
       }
@@ -133,6 +169,7 @@ function Dashboard() {
 
   const toggleVideoPublishStatus = async (videoId) => {
     try {
+      setIsLoading(true);
       await api.patch(`/api/v1/videos/toggle/publish/${videoId}`, {}, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -153,13 +190,19 @@ function Dashboard() {
           return video;
         })
       }));
+      
+      toast.success("Video status updated successfully");
     } catch (error) {
       console.error("Error toggling video publish status:", error);
+      toast.error("Failed to update video status");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const deleteTweet = async (tweetId) => {
     try {
+      setIsLoading(true);
       await api.delete(`/api/v1/tweets/${tweetId}`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -171,13 +214,22 @@ function Dashboard() {
         ...prev,
         tweets: prev.tweets.filter((tweet) => tweet._id !== tweetId)
       }));
+      
+      toast.success("Tweet deleted successfully");
     } catch (error) {
       console.error("Error deleting tweet:", error);
+      toast.error("Failed to delete tweet");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleRefresh = () => {
     fetchDashboardData();
+  };
+
+  const navigateToExplore = () => {
+    navigate("/explore");
   };
 
   // Show loading only on initial load when no data exists
@@ -194,6 +246,21 @@ function Dashboard() {
   if (!user) {
     return null;
   }
+
+  const renderEmptyState = (type, actionText, actionFn) => (
+    <div className="text-center py-8 text-gray-500">
+      <AlertCircle className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+      <p>You don't have any {type} yet.</p>
+      {actionText && actionFn && (
+        <Button
+          className="mt-4 bg-blue-600 hover:bg-blue-700"
+          onClick={actionFn}
+        >
+          {actionText}
+        </Button>
+      )}
+    </div>
+  );
 
   return (
     <div className="flex h-screen w-full bg-gray-100">
@@ -219,6 +286,14 @@ function Dashboard() {
                 Refresh
               </Button>
               <Button
+                onClick={navigateToExplore}
+                variant="outline"
+                className="flex items-center gap-1 bg-purple-50 text-purple-700 border-purple-300 hover:bg-purple-100"
+              >
+                <Compass className="h-4 w-4" />
+                Explore Videos
+              </Button>
+              <Button
                 onClick={() => navigate("/VideoUpload")}
                 className="bg-red-600 hover:bg-red-700"
               >
@@ -232,11 +307,11 @@ function Dashboard() {
             {[
               { icon: Play, label: "Videos", count: videos.length, color: "text-red-600" },
               { icon: ThumbsUp, label: "Likes", count: likedVideos.length, color: "text-blue-600" },
-              { icon: MessageSquare, label: "Comments", count: channelStats.commentCount || 0, color: "text-green-600" },
+              { icon: MessageSquare, label: "Comments", count: comments.length || 0, color: "text-green-600" },
               { icon: ListVideo, label: "Playlists", count: playlists.length, color: "text-purple-600" },
               { icon: Users, label: "Subscribers", count: subscribers.length, color: "text-orange-600" },
               { icon: Twitter, label: "Tweets", count: tweets.length, color: "text-cyan-600" },
-              { icon: Bell, label: "History", count: channelStats.watchHistory?.length || 0, color: "text-yellow-600" },
+              { icon: Bell, label: "History", count: watchHistory.length || 0, color: "text-yellow-600" },
             ].map((stat, index) => (
               <Card key={index} className="shadow-sm" onClick={() => setActiveTab(stat.label.toLowerCase())}>
                 <CardContent className="p-4 flex items-center space-x-2 cursor-pointer">
@@ -275,7 +350,10 @@ function Dashboard() {
                         key={video._id}
                         className="flex items-start border-b border-gray-200 pb-4"
                       >
-                        <div className="bg-gray-300 h-20 w-36 flex-shrink-0 rounded mr-4 relative">
+                        <div 
+                          className="bg-gray-300 h-20 w-36 flex-shrink-0 rounded mr-4 relative cursor-pointer"
+                          onClick={() => navigate(`/video/${video.title}`)}
+                        >
                           {video.thumbnail && (
                             <img
                               src={video.thumbnail}
@@ -288,7 +366,10 @@ function Dashboard() {
                           </div>
                         </div>
                         <div className="flex-1">
-                          <h3 className="font-medium mb-1 hover:text-blue-600 cursor-pointer">
+                          <h3 
+                            className="font-medium mb-1 hover:text-blue-600 cursor-pointer"
+                            onClick={() => navigate(`/video/${video.title}`)}
+                          >
                             {video.title}
                           </h3>
                           <div className="flex space-x-3 text-xs text-gray-500">
@@ -316,14 +397,14 @@ function Dashboard() {
                             variant="ghost"
                             size="sm"
                             className="text-blue-600"
-                            onClick={() => navigate(`/video/edit/${video._id}`)}
+                            //onClick={() => navigate(`/video/edit/${video._id}`)}
                           >
                             Edit
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-orange-600"
+                            className={`${video.isPublished ? "text-orange-600" : "text-green-600"}`}
                             onClick={() => toggleVideoPublishStatus(video._id)}
                           >
                             {video.isPublished ? "Unpublish" : "Publish"}
@@ -335,7 +416,7 @@ function Dashboard() {
                         <p>You haven't uploaded any videos yet.</p>
                         <Button
                           className="mt-4 bg-red-600 hover:bg-red-700"
-                          onClick={() => navigate("/upload")}
+                          onClick={() => navigate("/VideoUpload")}
                         >
                           Upload Your First Video
                         </Button>
@@ -346,7 +427,57 @@ function Dashboard() {
               </Card>
             </TabsContent>
             
-             
+            {/* Likes Tab */}
+            <TabsContent value="likes" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-xl">Liked Videos</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {likedVideos.length > 0 ? likedVideos.map((video) => (
+                      <div
+                        key={video._id}
+                        className="flex items-start border-b border-gray-200 pb-4"
+                      >
+                        <div 
+                          className="bg-gray-300 h-20 w-36 flex-shrink-0 rounded mr-4 relative cursor-pointer"
+                          onClick={() => navigate(`/video/${video.title}`)}
+                        >
+                          {video.thumbnail && (
+                            <img
+                              src={video.thumbnail}
+                              alt={video.title}
+                              className="h-full w-full object-cover rounded"
+                            />
+                          )}
+                          <div className="absolute bottom-1 right-1 bg-black bg-opacity-70 text-white text-xs px-1 rounded">
+                            {video.duration || "00:00"}
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <h3 
+                            className="font-medium mb-1 hover:text-blue-600 cursor-pointer"
+                            onClick={() => navigate(`/video/${video.title}`)}
+                          >
+                            {video.title}
+                          </h3>
+                          <div className="flex space-x-3 text-xs text-gray-500">
+                            <span>{video.views || 0} views</span>
+                            <span>{video.likes?.length || 0} likes</span>
+                            <span>
+                              {new Date(video.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )) : (
+                      renderEmptyState("liked videos", "Browse Videos", () => navigate("/"))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             {/* Comments Tab */}
             <TabsContent value="comments" className="space-y-4">
@@ -355,10 +486,32 @@ function Dashboard() {
                   <CardTitle className="text-xl">Your Comments</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-center py-8 text-gray-500">
-                    <p>Comment data will be displayed here</p>
-                    {/* You'll need to fetch and display comment data */}
-                  </div>
+                  {comments && comments.length > 0 ? (
+                    <div className="space-y-4">
+                      {comments.map((comment) => (
+                        <div key={comment._id} className="p-4 border rounded-lg">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center">
+                              <div>
+                                <h4 
+                                  className="font-medium text-blue-600 cursor-pointer" 
+                                  onClick={() => navigate(`/video/${comment.video}`)}
+                                >
+                                  {comment.videoTitle || "Video"}
+                                </h4>
+                                <p className="text-xs text-gray-500">
+                                  {new Date(comment.createdAt).toLocaleString()}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          <p className="mt-3">{comment.content}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    renderEmptyState("comments", "Browse Videos", () => navigate("/"))
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -403,15 +556,7 @@ function Dashboard() {
                     ))}
 
                     {playlists.length === 0 && (
-                      <div className="text-center py-8 text-gray-500">
-                        <p>You haven't created any playlists yet.</p>
-                        <Button
-                          className="mt-4 bg-purple-600 hover:bg-purple-700"
-                          onClick={() => navigate("/playlist/create")}
-                        >
-                          Create Your First Playlist
-                        </Button>
-                      </div>
+                      renderEmptyState("playlists", "Create Your First Playlist", () => navigate("/playlist/create"))
                     )}
                   </div>
                 </CardContent>
@@ -438,19 +583,21 @@ function Dashboard() {
                           )}
                         </div>
                         <div>
-                          <h4 className="font-medium">{subscriber.name}</h4>
+                          <h4 
+                            className="font-medium cursor-pointer hover:text-blue-600"
+                            onClick={() => navigate(`/channel/${subscriber.username}`)}
+                          >
+                            {subscriber.name || subscriber.username}
+                          </h4>
                           <p className="text-xs text-gray-500">
-                            {subscriber.subscribedAt}
+                            {subscriber.subscribedAt || "Subscribed recently"}
                           </p>
                         </div>
                       </div>
                     ))}
 
                     {subscribers.length === 0 && (
-                      <div className="col-span-full text-center py-8 text-gray-500">
-                        <p>You don't have any subscribers yet.</p>
-                        <p className="mt-2">Create more content to attract subscribers!</p>
-                      </div>
+                      renderEmptyState("subscribers", "Create More Content", () => navigate("/VideoUpload"))
                     )}
                   </div>
                 </CardContent>
@@ -502,10 +649,7 @@ function Dashboard() {
                     ))}
 
                     {tweets.length === 0 && (
-                      <div className="text-center py-8 text-gray-500">
-                        <p>You haven't posted any tweets yet.</p>
-                        {/* Add a button to create a tweet if you have that functionality */}
-                      </div>
+                      renderEmptyState("tweets", "Create Your First Tweet", () => {/* Add create tweet functionality */})
                     )}
                   </div>
                 </CardContent>
@@ -519,10 +663,37 @@ function Dashboard() {
                   <CardTitle className="text-xl">Watch History</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-center py-8 text-gray-500">
-                    <p>Your watch history will be displayed here</p>
-                    {/* You'll need to fetch and display watch history data */}
-                  </div>
+                  {watchHistory && watchHistory.length > 0 ? (
+                    <div className="space-y-4">
+                      {watchHistory.map((item) => (
+                        <div
+                          key={item._id || item.id}
+                          className="flex items-start border-b border-gray-200 pb-4 cursor-pointer"
+                          onClick={() => navigate(`/video/${item.title}`)}
+                        >
+                          <div className="bg-gray-300 h-20 w-36 flex-shrink-0 rounded mr-4 relative">
+                            {item.thumbnail && (
+                              <img
+                                src={item.thumbnail}
+                                alt={item.title}
+                                className="h-full w-full object-cover rounded"
+                              />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="font-medium mb-1 hover:text-blue-600">
+                              {item.title}
+                            </h3>
+                            <p className="text-xs text-gray-500">
+                              Watched: {new Date(item.watchedAt || item.createdAt).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    renderEmptyState("watch history", "Browse Videos", () => navigate("/"))
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

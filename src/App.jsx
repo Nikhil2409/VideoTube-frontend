@@ -6,9 +6,9 @@ import Profile from "./components/Profile/Profile.jsx";
 import EditProfile from "./components/Profile/EditProfile.jsx";
 import Channel from "./components/Channel/Channel.jsx"
 import VideoUpload from "./components/video/VideoUpload.jsx";
-//import VideoPlayer from "./components/VideoPlayer";
+import VideoPlayer from "./components/video/VideoPlayer.jsx";
 //import VideoEdit from "./components/VideoEdit";
-//import Explore from "./components/Explore";
+import Explore from "./components/Explore.jsx";
 //import PlaylistCreate from "./components/PlaylistCreate";
 //import PlaylistView from "./components/PlaylistView";
 //import PlaylistEdit from "./components/PlaylistEdit";
@@ -34,6 +34,8 @@ function App() {
       <Route path="/c/:username" element={<Channel />} /> 
 
       <Route path="/VideoUpload" element={<VideoUpload />} />
+      <Route path="/video/:videotitle" element={<VideoPlayer />} />
+      <Route path="/explore" element={<Explore />} />
     </Routes>
   );
 }
@@ -43,7 +45,7 @@ function App() {
           <Route path="/upload" element={<VideoUpload />} />
           <Route path="/video/:videoId" element={<VideoPlayer />} />
           <Route path="/video/edit/:videoId" element={<VideoEdit />} />
-          <Route path="/explore" element={<Explore />} />
+          
           <Route path="/history" element={<WatchHistory />} />
           
         

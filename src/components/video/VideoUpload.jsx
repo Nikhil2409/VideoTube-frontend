@@ -90,12 +90,23 @@ const VideoUploadPage = () => {
     <div className="max-w-4xl mx-auto p-6">
       <div className="mb-8 flex justify-between items-center">
         <h1 className="text-3xl font-bold">Upload New Video</h1>
-        <button 
-          className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded"
-          onClick={() => navigate('/dashboard')}
-        >
-          Back to Dashboard
-        </button>
+        <button
+            type="button"
+            style={{
+              backgroundColor: "#4caf50",
+              color: "white",
+              padding: "5px 10px",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontWeight: "bold",
+              flex: 1,
+              margin: "0 0 0 5px",
+            }}
+            onClick={() => navigate("/dashboard")}
+          >
+            Go to Dashboard
+          </button>
       </div>
       
       <div className="bg-white rounded-lg shadow-md p-6">

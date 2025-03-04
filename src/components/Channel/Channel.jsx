@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Users, Heart, MessageSquare, Share2 } from 'lucide-react';
 import { Navbar } from "../Navbar.jsx";
@@ -73,6 +73,7 @@ const DUMMY_TWEETS = [
 
 const Channel = () => {
   const { username } = useParams();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [channel, setChannel] = useState(null);
   const [videos, setVideos] = useState([]);
@@ -96,10 +97,12 @@ const Channel = () => {
         const response = await api.get(`/api/v1/users/c/${username}`);
         setChannel(response.data.data);
         console.log("channel");
-        
+        const accessToken = username.accessToken;
         // Fetch videos for this channel
-        const videosResponse = await api.get(`/api/v1/videos/${response.data.data.username}`);
-        setVideos(videosResponse.data.data || DUMMY_VIDEOS);
+        const videoResponse = await api.get(`/api/v1/videos/user/${username}`,{
+          headers: { Authorization: `Bearer ${accessToken}`  },
+        });
+        setVideos(videoResponse.data.videos || DUMMY_VIDEOS);
         console.log("videos");
         
         // Fetch tweets for this channel
@@ -287,7 +290,7 @@ const Channel = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {videos.map(video => (
                       <div key={video._id} className="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                        <div className="relative pt-[56.25%] bg-gray-200">
+                        <div className="relative pt-[56.25%] bg-gray-200" onClick={() => navigate(`/video/${video.title}`)}>
                           {video.thumbnail ? (
                             <img 
                               src={video.thumbnail} 
