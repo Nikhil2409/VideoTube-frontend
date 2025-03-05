@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import Cookies from 'js-cookie';
+import { cacheUtils } from "../components/utils/cacheUtils"
 
 const AuthContext = createContext();
 
@@ -114,6 +115,9 @@ export const AuthProvider = ({ children }) => {
 
   // Logout function - remove token and clear user state
   const logout = () => {
+    if (user) {
+      cacheUtils.clearUserCache(user.id);
+    }
     Cookies.remove("accessToken");
     setUser(null);
   };

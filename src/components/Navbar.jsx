@@ -1,37 +1,138 @@
-import React, { useState, useCallback } from "react";
-import { Bell, User, Search, Video, LogOut, ChevronLeft } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
-import { useNavigate } from "react-router-dom";
-import { Button } from "./ui/button";
+import React, { useState, useCallback } from "react"
+import { 
+  User, 
+  Search, 
+  Video, 
+  LogOut, 
+  ChevronLeft, 
+  Pen, 
+  Play, 
+  Trash2, 
+  Clock, 
+  Heart, 
+  MessageCircle, 
+  ListVideo, 
+  Settings,
+  WatchIcon
+} from "lucide-react"
+import { useAuth } from "../context/AuthContext"
+import { useNavigate } from "react-router-dom"
+import { Button } from "./ui/button"
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from "./ui/dropdown-menu";
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel
+} from "./ui/dropdown-menu"
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from "./ui/alert-dialog"
+import { toast } from "./ui/use-toast"
+import axios from 'axios'
+import { cacheUtils } from "./utils/cacheUtils"
 
-function Navbar() {
-  const { user, logout } = useAuth();
-  const [searchQuery, setSearchQuery] = useState("");
-  const navigate = useNavigate();
-
+function Navbar({ user: propsUser, logout, onDataDelete, onWatchHistoryCleared }) {
+  const [searchQuery, setSearchQuery] = useState("")
+  const [deleteConfirmation, setDeleteConfirmation] = useState(null)
+  const [user, setUser] = useState(propsUser);
+  const navigate = useNavigate()
+  console.log(user);
   const handleSearch = useCallback((e) => {
-    e.preventDefault();
-    const trimmedQuery = searchQuery.trim();
+    e.preventDefault()
+    const trimmedQuery = searchQuery.trim()
     if (trimmedQuery) {
-      navigate(`/c/${trimmedQuery}`);
-      setSearchQuery("");
+      navigate(`/c/${trimmedQuery}`)
+      setSearchQuery("")
     }
-  }, [searchQuery, navigate]);
-
-  const handleLogout = useCallback(() => {
-    logout();
-    navigate("/login");
-  }, [logout, navigate]);
+  }, [searchQuery, navigate])
 
   const handleGoBack = useCallback(() => {
-    navigate(-1); // Navigate to the previous page in the history stack
-  }, [navigate]);
+    navigate(-1)
+  }, [navigate])
+  
+  const api = axios.create({
+    baseURL: "http://localhost:3900",
+    withCredentials: true,
+  });
+
+  const handleDeleteSpecificData = async (dataType) => {
+    try {
+      if(dataType === 'watch history'){
+        await api.post('/api/v1/users/deleteWatchHistory', {
+          userId: user?.id,
+        });
+
+        setUser(prevUser => ({
+          ...prevUser,
+          watchHistoryIds: [] // Clear watch history IDs
+        }));
+
+        // Call the callback to trigger watch history clearing in Dashboard
+        if (onWatchHistoryCleared) {
+          onWatchHistoryCleared();
+        }
+      } else {
+        await api.post('/api/v1/users/delete-specific-data', {
+          userId: user?.id,
+          dataType: dataType
+        });
+      }
+      
+      toast({
+        title: "Data Deleted",
+        description: `${dataType} has been successfully deleted.`,
+        variant: "destructive"
+      });
+      
+      // Clear local cache
+      cacheUtils.clearUserCache(user.id);
+      
+      // Trigger dashboard refresh if callback is provided
+      if (onDataDelete) {
+        onDataDelete();
+      }
+      
+      setDeleteConfirmation(null);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `Failed to delete ${dataType}.`,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const dataDeleteOptions = [
+    { 
+      type: 'playlist', 
+      label: 'Playlists', 
+      icon: ListVideo 
+    },
+    { 
+      type: 'video', 
+      label: 'Videos', 
+      icon: Video 
+    },
+    { 
+      type: 'tweet', 
+      label: 'Tweets', 
+      icon: Pen 
+    },
+    {
+      type: 'watch history',
+      label: 'WatchHistory',
+      icon: Clock
+    }
+  ]
 
   return (
     <nav className="bg-white shadow-md p-4 flex justify-between items-center sticky top-0 z-50">
@@ -51,7 +152,7 @@ function Navbar() {
           VideoTube
         </h1>
       </div>
-      
+    
       <form onSubmit={handleSearch} className="flex-1 max-w-xl mx-8">
         <div className="relative">
           <input
@@ -72,7 +173,7 @@ function Navbar() {
           </button>
         </div>
       </form>
-      
+    
       <div className="flex items-center space-x-4">
         <Button 
           variant="outline" 
@@ -86,9 +187,19 @@ function Navbar() {
         <Button 
           variant="outline" 
           size="icon" 
+          onClick={() => navigate("/makeTweet")}
           className="hover:bg-gray-50"
         >
-          <Bell className="h-5 w-5 text-gray-600" />
+          <Pen className="h-5 w-5 text-blue-600" />
+        </Button>
+      
+        <Button 
+          variant="outline" 
+          size="icon" 
+          onClick={() => navigate("/addPlaylist")}
+          className="hover:bg-gray-50"
+        >
+          <Play className="h-5 w-5 text-blue-600" />
         </Button>
 
         <DropdownMenu>
@@ -98,33 +209,63 @@ function Navbar() {
               className="flex items-center space-x-2 hover:bg-gray-100"
             >
               <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <User className="w-5 h-5 text-blue-600" />
+                <Settings className="w-5 h-5 text-blue-600" />
               </div>
               <span className="font-medium text-sm">
-                {user?.fullName || 'Profile'}
+                {'Settings'}
               </span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem 
-              className="cursor-pointer" 
-              onSelect={() => navigate("/profile")}
-            >
-              <User className="mr-2 h-4 w-4" />
-              <span>Profile</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem 
-              className="cursor-pointer text-red-600 focus:text-red-700" 
-              onSelect={handleLogout}
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Logout</span>
-            </DropdownMenuItem>
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuLabel>Data Management</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            
+            {dataDeleteOptions.map((option) => (
+              <DropdownMenuItem 
+                key={option.type}
+                className="cursor-pointer flex items-center justify-between"
+                onSelect={() => setDeleteConfirmation(option.type)}
+              >
+                <div className="flex items-center">
+                  <option.icon className="mr-2 h-4 w-4 text-blue-600" />
+                  <span>{option.label}</span>
+                </div>
+                <Trash2 className="h-4 w-4 text-red-500" />
+              </DropdownMenuItem>
+            ))}
+            
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {deleteConfirmation && (
+        <AlertDialog 
+          open={!!deleteConfirmation} 
+          onOpenChange={() => setDeleteConfirmation(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Confirmation</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete your {
+                  dataDeleteOptions.find(opt => opt.type === deleteConfirmation)?.label
+                }? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={() => handleDeleteSpecificData(deleteConfirmation)}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </nav>
-  );
+  )
 }
 
-export { Navbar };
+export { Navbar }

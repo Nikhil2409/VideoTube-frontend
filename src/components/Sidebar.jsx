@@ -24,6 +24,7 @@ import {
 import { Button } from "./ui/button";
 import { useAuth } from "../context/AuthContext";
 import axios from "axios";
+import { cacheUtils } from "./utils/cacheUtils";
 
 function Sidebar() {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
@@ -38,12 +39,15 @@ function Sidebar() {
 
   const handleLogout = async () => {
     try {
+      console.log(localStorage);
+      console.log(user.id);
+      cacheUtils.clearUserCache(user.id);
       await api.post("/api/v1/users/logout", {}, { withCredentials: true });
+      console.log(localStorage);
       logout();
       navigate("/login");
     } catch (error) {
       console.error("Error logging out:", error);
-      // Consider adding user-friendly error toast
     }
   };
 

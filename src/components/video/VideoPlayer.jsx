@@ -191,22 +191,19 @@ function VideoPlayer() {
     
     setIsSubscribing(true);
     
-    // Optimistic UI update
-    setIsSubscribed(!isSubscribed);
-    setSubscribers(prev => isSubscribed ? prev - 1 : prev + 1);
-    
     try {
       const accessToken = user.accessToken;
-      await api.post(`/api/v1/subscriptions/c/${video.owner.id}`, {}, {
+      const response = await api.post(`/api/v1/subscriptions/c/${video.owner.id}`, {}, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       
-      // No need to refetch everything, we've already updated the UI
+      // Update subscription state based on the server response
+      if (response.data.success) {
+        setIsSubscribed(!isSubscribed);
+        setSubscribers(prev => isSubscribed ? prev - 1 : prev + 1);
+      }
     } catch (error) {
       console.error("Error toggling subscription:", error);
-      // Revert optimistic update on error
-      setIsSubscribed(!isSubscribed);
-      setSubscribers(prev => !isSubscribed ? prev - 1 : prev + 1);
       setError("Failed to update subscription status");
     } finally {
       setIsSubscribing(false);

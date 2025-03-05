@@ -7,6 +7,20 @@ import { ListVideo, Play } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { Button } from '../ui/button';
+function formatDuration(seconds) {
+  // Ensure seconds is a number
+  seconds = Number(seconds);
+  
+  // Calculate minutes and remaining seconds
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.floor(seconds % 60);
+  
+  // Pad with leading zeros if needed
+  const formattedMinutes = minutes.toString().padStart(2, '0');
+  const formattedSeconds = remainingSeconds.toString().padStart(2, '0');
+  
+  return `${formattedMinutes}:${formattedSeconds}`;
+}
 
 function LikedVideosPage() {
   const navigate = useNavigate();
@@ -33,14 +47,14 @@ function LikedVideosPage() {
       try {
         const response = await api.get('/api/v1/likes/videos');
         const fetchedLikedVideos = response.data.data || [];
-        
+        console.log(response);
         const formattedVideos = fetchedLikedVideos.map(video => ({
           id: video.id,
           title: video.title,
           thumbnail: video.thumbnail || '/api/placeholder/300/200',
-          channelName: video.channelName || 'Unknown Channel',
           views: video.views || 0,
-          likedAt: new Date(video.likedAt || Date.now())
+          likedAt: new Date(video.likedAt || Date.now()),
+          duration:video.duration
         }));
         
         setLikedVideos(formattedVideos);
@@ -58,6 +72,8 @@ function LikedVideosPage() {
   const filteredVideos = likedVideos.filter(video => 
     video.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  console.log(filteredVideos);
 
   if (loading) {
     return (
@@ -116,7 +132,7 @@ function LikedVideosPage() {
                         className="w-full h-48 object-cover"
                       />
                       <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-sm">
-                        {video.likedAt.toLocaleDateString()}
+                        {formatDuration(video.duration)}
                       </div>
                     </div>
                     
@@ -127,8 +143,6 @@ function LikedVideosPage() {
                       
                       <div className="flex justify-between items-center text-sm text-gray-600">
                         <div className="flex items-center gap-2">
-                          <span>{video.channelName}</span>
-                          <span className="px-1">•</span>
                           <span>{video.views.toLocaleString()} Views</span>
                         </div>
                       </div>
