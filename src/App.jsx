@@ -9,6 +9,8 @@ import VideoUpload from "./components/video/VideoUpload.jsx";
 import VideoPlayer from "./components/video/VideoPlayer.jsx";
 //import VideoEdit from "./components/VideoEdit";
 import Explore from "./components/Explore.jsx";
+import MyVideosPage from "./components/video/MyVideos.jsx";
+import LikedVideosPage from "./components/video/LikedVideos.jsx";
 //import PlaylistCreate from "./components/PlaylistCreate";
 //import PlaylistView from "./components/PlaylistView";
 //import PlaylistEdit from "./components/PlaylistEdit";
@@ -34,8 +36,11 @@ function App() {
       <Route path="/c/:username" element={<Channel />} /> 
 
       <Route path="/VideoUpload" element={<VideoUpload />} />
-      <Route path="/video/:videotitle" element={<VideoPlayer />} />
+      <Route path="/video/:videoId" element={<VideoPlayer />} />
       <Route path="/explore" element={<Explore />} />
+      <Route path="/my-videos" element={< MyVideosPage/>} />
+
+      <Route path="/likedVideos" element={<LikedVideosPage />} />
     </Routes>
   );
 }

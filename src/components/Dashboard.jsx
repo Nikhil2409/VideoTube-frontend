@@ -17,9 +17,11 @@ import {
   RefreshCw,
   AlertCircle,
   Compass,
+  Trash2,
 } from "lucide-react";
 import axios from "axios";
-import { toast } from "react-hot-toast"; // Assuming toast is available for notifications
+import { toast } from "react-hot-toast";
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 // Create API instance outside component to avoid recreation
 const api = axios.create({
@@ -27,24 +29,42 @@ const api = axios.create({
   withCredentials: true,
 });
 
-// Dummy data
+function formatDuration(seconds) {
+  // Ensure seconds is a number
+  seconds = Number(seconds);
+  
+  // Calculate minutes and remaining seconds
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.floor(seconds % 60);
+  
+  // Pad with leading zeros if needed
+  const formattedMinutes = minutes.toString().padStart(2, '0');
+  const formattedSeconds = remainingSeconds.toString().padStart(2, '0');
+  
+  return `${formattedMinutes}:${formattedSeconds}`;
+}
+
+// Dummy data for fallback
 const dummyData = {
   videos: [
-    { _id: '1', title: 'Dummy Video 1', thumbnail: 'https://via.placeholder.com/150', duration: '3:45', views: 1000, likes: { length: 50 }, comments: { length: 10 }, createdAt: new Date(), isPublished: true },
-    { _id: '2', title: 'Dummy Video 2', thumbnail: 'https://via.placeholder.com/150', duration: '5:20', views: 2000, likes: { length: 100 }, comments: { length: 20 }, createdAt: new Date(), isPublished: false },
+    { id: '1', title: 'Dummy Video 1', thumbnail: 'https://via.placeholder.com/150', duration: '3:45', views: 1000, likes: [], comments: [], createdAt: new Date(), isPublished: true },
+    { id: '2', title: 'Dummy Video 2', thumbnail: 'https://via.placeholder.com/150', duration: '5:20', views: 2000, likes: [], comments: [], createdAt: new Date(), isPublished: false },
   ],
   likedVideos: [
-    { _id: '3', title: 'Liked Dummy Video', thumbnail: 'https://via.placeholder.com/150', duration: '4:30', views: 3000, likes: { length: 150 }, createdAt: new Date() },
+    { id: '3', title: 'Liked Dummy Video', thumbnail: 'https://via.placeholder.com/150', duration: '4:30', views: 3000, likes: [], createdAt: new Date() },
   ],
   playlists: [
-    { _id: '1', name: 'Dummy Playlist', description: 'A dummy playlist', videos: [{ thumbnail: 'https://via.placeholder.com/150' }], createdAt: new Date(), isPublic: true },
+    { id: '1', name: 'Dummy Playlist', description: 'A dummy playlist', videos: [{ thumbnail: 'https://via.placeholder.com/150' }], createdAt: new Date(), isPublic: true },
   ],
   subscribers: [
-    { _id: '1', username: 'DummyUser', avatar: 'https://via.placeholder.com/50', createdAt: new Date() },
+    { id: '1', username: 'DummyUser', avatar: 'https://via.placeholder.com/50', createdAt: new Date() },
   ],
   tweets: [
-    { _id: '1', content: 'This is a dummy tweet', createdAt: new Date() },
+    { id: '1', content: 'This is a dummy tweet', createdAt: new Date() },
   ],
+  watchHistory: [
+    { id: '1', title: 'Watch History Dummy Video', thumbnail: 'https://via.placeholder.com/150', createdAt: new Date() }
+  ]
 };
 
 function Dashboard() {
@@ -55,6 +75,10 @@ function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
   
+  // Watch History Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
   const [dashboardData, setDashboardData] = useState({
     videos: [],
     likedVideos: [],
@@ -64,12 +88,16 @@ function Dashboard() {
     comments: [],
     watchHistory: [],
   });
-
+  
   const { videos, likedVideos, playlists, subscribers, tweets, comments, watchHistory } = dashboardData;
 
   const userId = user?.id;
   const accessToken = user?.accessToken;
   const username = user?.username;
+
+  // Pagination for Watch History
+  const paginatedHistory = watchHistory.slice(0, currentPage * itemsPerPage);
+  const totalPages = Math.ceil(watchHistory.length / itemsPerPage);
 
   const fetchDashboardData = useCallback(async (showLoading = true) => {
     if (!accessToken) return null;
@@ -81,53 +109,63 @@ function Dashboard() {
     
     try {
       // Fetch subscribers
-      const subscribersResponse = await api.get(`/api/v1/subscriptions/u/${username}`, {
+      const subscribersResponse = await api.get(`/api/v1/subscriptions/u/${userId}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
         signal,
-      });
-
-      // Fetch videos
-      const videoResponse = await api.get(`/api/v1/videos/user/${username}`, {
-        headers: { Authorization: `Bearer ${accessToken}`  },
+      }).catch(() => ({ data: { data: { subscribers: [] } } }));
+      
+      const likesResponse = await api.get(`/api/v1/likes/videos`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
         signal,
+      }).catch(() => ({ data: { data: { likes: [] } } }));
+      
+      
+      // Fetch dashboard videos using the new endpoint
+      const dashboardVideosResponse = await api.get(`/api/v1/videos/user/id/${userId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal,
+      }).catch(() => ({ data: { data: {videos: []} } }));
+    
+      console.log(dashboardVideosResponse);
+    
+      // Fetch watch history videos
+      //console.log(user);
+      const watchHistoryIds = user.watchHistoryIds || [];
+      const videoPromises = watchHistoryIds.map(async (videoId) => {
+        try {
+          const response = await api.get(`/api/v1/videos/${videoId}`, {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+            signal,
+          });
+          return response.data.data; // Assuming the video data is in response.data.data
+        } catch (error) {
+          console.error(`Failed to fetch video ${videoId}:`, error);
+          return null;
+        }
       });
-
-      // // Fetch liked videos - update this endpoint based on your API
-      // const likedVideosResponse = await api.get(`/api/v1/videos/liked`, {
-      //   headers: { Authorization: `Bearer ${accessToken}` },
-      //   signal,
-      // }).catch(() => ({ data: { videos: [] }}));
-
-      // Fetch comments - update this endpoint based on your API
-      // const commentsResponse = await api.get(`/api/v1/comments/user/${username}`, {
-      //   headers: { Authorization: `Bearer ${accessToken}` },
-      //   signal,
-      // }).catch(() => ({ data: { comments: [] }}));
-
-      // Fetch watch history - update this endpoint based on your API
-      // const historyResponse = await api.get(`/api/v1/history`, {
-      //   headers: { Authorization: `Bearer ${accessToken}` },
-      //   signal,
-      // }).catch(() => ({ data: { history: [] }}));
-
+      
+      // Wait for all API calls to complete
+      const videosArray = await Promise.all(videoPromises);
+    
+      // Filter out null values (failed requests)
+      const validVideos = videosArray.filter(video => video !== null);
+      console.log(validVideos);
       // Update dashboard data
       setDashboardData(prevData => ({
         ...prevData,
         subscribers: subscribersResponse.data?.data?.subscribers || dummyData.subscribers,
-        videos: videoResponse?.data?.videos || dummyData.videos,
-        likedVideos: /*likedVideosResponse?.data?.videos ||*/ dummyData.likedVideos,
-        comments: /*commentsResponse?.data?.comments || */ [],
-        watchHistory: /*historyResponse?.data?.history || */[],
-        playlists: dummyData.playlists, // Replace with actual API call when available
-        tweets: dummyData.tweets, // Replace with actual API call when available
-      }));
-
-      // Update channel stats
+        videos: dashboardVideosResponse.data?.videos ,
+        likedVideos: likesResponse.data.data || dummyData.likedVideos,
+        comments: [],
+        watchHistory: validVideos,
+        playlists: dummyData.playlists,
+        tweets: dummyData.tweets,
+      }));  // Update channel stats
       setChannelStats({
-        totalVideos: videoResponse?.data?.videos?.length || 0,
+        totalVideos: dashboardVideosResponse.data?.data?.length || 0,
         subscriberCount: subscribersResponse.data?.data?.subscribers?.length || 0,
-        //commentCount: commentsResponse?.data?.comments?.length || 0,
-        //watchHistory: historyResponse?.data?.history || [],
       });
 
       setLastRefreshed(new Date());
@@ -144,7 +182,7 @@ function Dashboard() {
     }
     
     return () => controller.abort();
-  }, [accessToken, username]);
+  }, [accessToken, userId]);
 
   useEffect(() => {
     if (!user) {
@@ -170,7 +208,7 @@ function Dashboard() {
   const toggleVideoPublishStatus = async (videoId) => {
     try {
       setIsLoading(true);
-      await api.patch(`/api/v1/videos/toggle/publish/${videoId}`, {}, {
+      const response = await api.patch(`/api/v1/videos/toggle/publish/${videoId}`, {}, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
@@ -181,7 +219,7 @@ function Dashboard() {
       setDashboardData(prev => ({
         ...prev,
         videos: prev.videos.map((video) => {
-          if (video._id === videoId) {
+          if (video.id === videoId) {
             return {
               ...video,
               isPublished: !video.isPublished,
@@ -191,10 +229,40 @@ function Dashboard() {
         })
       }));
       
-      toast.success("Video status updated successfully");
+      toast.success(response.data?.message || "Video status updated successfully");
     } catch (error) {
       console.error("Error toggling video publish status:", error);
-      toast.error("Failed to update video status");
+      toast.error(error.response?.data?.message || "Failed to update video status");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const formatNumber = (num) => {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toString();
+  };
+
+  const deleteVideo = async (videoId) => {
+    try {
+      setIsLoading(true);
+      await api.delete(`/api/v1/videos/${videoId}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      // Update videos state by removing the deleted video
+      setDashboardData(prev => ({
+        ...prev,
+        videos: prev.videos.filter((video) => video.id !== videoId)
+      }));
+      
+      toast.success("Video deleted successfully");
+    } catch (error) {
+      console.error("Error deleting video:", error);
+      toast.error(error.response?.data?.message || "Failed to delete video");
     } finally {
       setIsLoading(false);
     }
@@ -209,10 +277,10 @@ function Dashboard() {
         },
       });
 
-      // Update the tweets state using previous state pattern
+      // Update the tweets state
       setDashboardData(prev => ({
         ...prev,
-        tweets: prev.tweets.filter((tweet) => tweet._id !== tweetId)
+        tweets: prev.tweets.filter((tweet) => tweet.id !== tweetId)
       }));
       
       toast.success("Tweet deleted successfully");
@@ -233,7 +301,7 @@ function Dashboard() {
   };
 
   // Show loading only on initial load when no data exists
-  const initialLoading = isLoading && videos.length === 0;
+  const initialLoading = isLoading && videos?.length === 0;
 
   if (initialLoading) {
     return (
@@ -248,12 +316,14 @@ function Dashboard() {
   }
 
   const renderEmptyState = (type, actionText, actionFn) => (
-    <div className="text-center py-8 text-gray-500">
-      <AlertCircle className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-      <p>You don't have any {type} yet.</p>
+    <div className="flex flex-col items-center justify-center p-8 bg-white/60 backdrop-blur-lg rounded-2xl border border-white/30 shadow-xl">
+      <AlertCircle className="h-16 w-16 text-blue-500 mb-4 opacity-70" />
+      <p className="text-gray-700 mb-4 text-center">
+        You don't have any {type} yet.
+      </p>
       {actionText && actionFn && (
         <Button
-          className="mt-4 bg-blue-600 hover:bg-blue-700"
+          className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105"
           onClick={actionFn}
         >
           {actionText}
@@ -262,441 +332,396 @@ function Dashboard() {
     </div>
   );
 
+  // Consistent video/item card rendering
+  const renderItemCard = (item, type, actions = []) => (
+    <div
+      className="flex items-center bg-white/70 backdrop-blur-lg rounded-xl p-4 shadow-md hover:shadow-xl transition-all transform hover:-translate-y-1 border border-white/30 space-x-4"
+      onClick={() => type === 'video' ? navigate(`/video/${item.id}`) : null}
+    >
+      {/* Thumbnail */}
+      <div className="h-20 w-36 rounded-lg overflow-hidden flex-shrink-0 relative">
+        {item.thumbnail ? (
+          <img
+            src={item.thumbnail}
+            alt={item.title}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+            <Play className="text-gray-500" />
+          </div>
+        )}
+        {type === 'video' && (
+          <div className="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-2 rounded">
+            {formatDuration(item.duration) || "00:00"}
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1">
+        <h3 className="font-semibold text-gray-800 mb-1 hover:text-blue-600 transition-colors">
+          {item.title || item.name || item.content}
+        </h3>
+        
+        {/* Metadata based on type */}
+        <div className="text-xs text-gray-500 space-y-1">
+          {type === 'video' && (
+            <>
+              <div>{item.views || 0} views</div>
+              <div>{new Date(item.createdAt).toLocaleDateString()}</div>
+              {item.isPublished !== undefined && (
+                <span 
+                  className={`inline-block px-2 py-1 rounded ${
+                    item.isPublished 
+                    ? "bg-green-100 text-green-800" 
+                    : "bg-yellow-100 text-yellow-800"
+                  } text-xs`}
+                >
+                  {item.isPublished ? "Published" : "Private"}
+                </span>
+              )}
+            </>
+          )}
+          
+          {type === 'playlist' && (
+            <>
+              <div>Created: {new Date(item.createdAt).toLocaleDateString()}</div>
+              <div>{item.isPublic ? "Public" : "Private"}</div>
+            </>
+          )}
+          
+          {type === 'tweet' && (
+            <div>{new Date(item.createdAt).toLocaleString()}</div>
+          )}
+        </div>
+      </div>
+
+      {/* Actions */}
+      {actions.length > 0 && (
+        <div className="flex space-x-2">
+          {actions.map((action, index) => (
+            <Button
+              key={index}
+              variant="ghost"
+              size="sm"
+              className={`hover:bg-gray-100 ${action.className}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                action.onClick();
+              }}
+            >
+              {action.label}
+            </Button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
-    <div className="flex h-screen w-full bg-gray-100">
+    <div className="flex h-screen w-full bg-gradient-to-br from-gray-50 to-blue-50">
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-auto">
         <Navbar user={user} />
-        <div className="p-8">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h1 className="text-3xl font-bold">Channel Dashboard</h1>
-              <p className="text-sm text-gray-500">
-                Last updated: {lastRefreshed.toLocaleTimeString()}
-              </p>
-            </div>
-            <div className="flex space-x-2">
-              <Button
-                onClick={handleRefresh}
-                variant="outline"
-                className="flex items-center gap-1"
-                disabled={isLoading}
-              >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-              <Button
-                onClick={navigateToExplore}
-                variant="outline"
-                className="flex items-center gap-1 bg-purple-50 text-purple-700 border-purple-300 hover:bg-purple-100"
-              >
-                <Compass className="h-4 w-4" />
-                Explore Videos
-              </Button>
-              <Button
-                onClick={() => navigate("/VideoUpload")}
-                className="bg-red-600 hover:bg-red-700"
-              >
-                Upload Video
-              </Button>
+        <div className="p-8 space-y-8">
+          {/* Header with Gradient Background */}
+          <div 
+            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl p-6 shadow-2xl transform transition-all hover:scale-[1.02]"
+          >
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-4xl font-bold mb-2 tracking-tight">
+                  Welcome, {user?.username || 'Creator'}
+                </h1>
+                <p className="text-sm opacity-80">
+                  Your creative hub for content management
+                </p>
+              </div>
+              <div className="flex space-x-3">
+                <Button
+                  onClick={handleRefresh}
+                  variant="outline"
+                  className="bg-white/20 text-white hover:bg-white/30 border-white/30 flex items-center gap-2"
+                  disabled={isLoading}
+                >
+                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+                <Button
+                  onClick={() => navigate("/VideoUpload")}
+                  className="bg-white text-blue-600 hover:bg-white/90 shadow-md"
+                >
+                  Upload Video
+                </Button>
+              </div>
             </div>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-8">
-            {[
-              { icon: Play, label: "Videos", count: videos.length, color: "text-red-600" },
-              { icon: ThumbsUp, label: "Likes", count: likedVideos.length, color: "text-blue-600" },
-              { icon: MessageSquare, label: "Comments", count: comments.length || 0, color: "text-green-600" },
-              { icon: ListVideo, label: "Playlists", count: playlists.length, color: "text-purple-600" },
-              { icon: Users, label: "Subscribers", count: subscribers.length, color: "text-orange-600" },
-              { icon: Twitter, label: "Tweets", count: tweets.length, color: "text-cyan-600" },
-              { icon: Bell, label: "History", count: watchHistory.length || 0, color: "text-yellow-600" },
-            ].map((stat, index) => (
-              <Card key={index} className="shadow-sm" onClick={() => setActiveTab(stat.label.toLowerCase())}>
-                <CardContent className="p-4 flex items-center space-x-2 cursor-pointer">
-                  <stat.icon className={`h-4 w-4 ${stat.color}`} />
-                  <div>
-                    <p className="text-sm font-medium">{stat.label}</p>
-                    <p className="text-2xl font-bold">{stat.count}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Tabs for different sections */}
+          {/* Tabs with Modern, Clean Design */}
           <Tabs
             value={activeTab}
             onValueChange={setActiveTab}
             className="space-y-4"
           >
-            <TabsList className="grid grid-cols-7 gap-2">
-              {["Videos", "Likes", "Comments", "Playlists", "Subscribers", "Tweets", "History"].map((tab) => (
-                <TabsTrigger key={tab} value={tab.toLowerCase()}>{tab}</TabsTrigger>
-              ))}
-            </TabsList>
+            <TabsList className="bg-white/60 backdrop-blur-lg border border-white/30 p-1 rounded-xl">
+        {[
+          { name: "Videos", stat: dashboardData.videos.length || 0},
+          { name: "Likes", stat: dashboardData.likedVideos.length || 0},
+          { name: "Comments", stat: dashboardData.comments.length || 0},
+          { name: "Playlists", stat: dashboardData.playlists.length || 0},
+          { name: "Subscribers", stat: dashboardData.subscribers.length || 0},
+          { name: "Tweets", stat: dashboardData.tweets.length || 0},
+          { name: "History", stat: dashboardData.watchHistory.length || 0}
+        ].map(({ name, stat }) => (
+          <TabsTrigger 
+            key={name} 
+            value={name.toLowerCase()}
+            className="rounded-lg data-[state=active]:bg-blue-500 data-[state=active]:text-white transition-colors flex items-center gap-2"
+          >
+            {name}
+            <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">
+              {formatNumber(stat)}
+            </span>
+          </TabsTrigger>
+        ))}
+      </TabsList>
 
             {/* Videos Tab */}
-            <TabsContent value="videos" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-xl">Your Videos</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {videos.length > 0 ? videos.map((video) => (
-                      <div
-                        key={video._id}
-                        className="flex items-start border-b border-gray-200 pb-4"
-                      >
-                        <div 
-                          className="bg-gray-300 h-20 w-36 flex-shrink-0 rounded mr-4 relative cursor-pointer"
-                          onClick={() => navigate(`/video/${video.title}`)}
-                        >
-                          {video.thumbnail && (
-                            <img
-                              src={video.thumbnail}
-                              alt={video.title}
-                              className="h-full w-full object-cover rounded"
-                            />
-                          )}
-                          <div className="absolute bottom-1 right-1 bg-black bg-opacity-70 text-white text-xs px-1 rounded">
-                            {video.duration || "00:00"}
-                          </div>
-                        </div>
-                        <div className="flex-1">
-                          <h3 
-                            className="font-medium mb-1 hover:text-blue-600 cursor-pointer"
-                            onClick={() => navigate(`/video/${video.title}`)}
-                          >
-                            {video.title}
-                          </h3>
-                          <div className="flex space-x-3 text-xs text-gray-500">
-                            <span>{video.views || 0} views</span>
-                            <span>{video.likes?.length || 0} likes</span>
-                            <span>{video.comments?.length || 0} comments</span>
-                            <span>
-                              {new Date(video.createdAt).toLocaleDateString()}
-                            </span>
-                          </div>
-                          <div className="mt-2">
-                            <span
-                              className={`text-xs px-2 py-1 rounded ${
-                                video.isPublished
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-yellow-100 text-yellow-800"
-                              }`}
-                            >
-                              {video.isPublished ? "Published" : "Private"}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-blue-600"
-                            //onClick={() => navigate(`/video/edit/${video._id}`)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={`${video.isPublished ? "text-orange-600" : "text-green-600"}`}
-                            onClick={() => toggleVideoPublishStatus(video._id)}
-                          >
-                            {video.isPublished ? "Unpublish" : "Publish"}
-                          </Button>
-                        </div>
-                      </div>
-                    )) : (
-                      <div className="text-center py-8 text-gray-500">
-                        <p>You haven't uploaded any videos yet.</p>
-                        <Button
-                          className="mt-4 bg-red-600 hover:bg-red-700"
-                          onClick={() => navigate("/VideoUpload")}
-                        >
-                          Upload Your First Video
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+            <TabsContent 
+              value="videos" 
+              className="space-y-4 bg-white/60 backdrop-blur-lg rounded-2xl p-6 border border-white/30 shadow-xl"
+            >
+              <CardHeader>
+                <CardTitle className="text-xl text-gray-800">Your Videos</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {videos?.length > 0 ? (
+                  videos.map((video) => renderItemCard(
+                    video, 
+                    'video', 
+                    [
+                      { 
+                        label: 'Edit', 
+                        onClick: () => navigate(`/video/edit/${video.id}`),
+                        className: 'text-blue-600'
+                      },
+                      { 
+                        label: video.isPublished ? 'Unpublish' : 'Publish', 
+                        onClick: () => toggleVideoPublishStatus(video.id),
+                        className: video.isPublished ? 'text-orange-600' : 'text-green-600'
+                      },
+                      { 
+                        label: 'Delete', 
+                        onClick: () => deleteVideo(video.id),
+                        className: 'text-red-600'
+                      }
+                    ]
+                  ))) : (
+                  renderEmptyState("videos", "Upload Your First Video", () => navigate("/VideoUpload"))
+                )}
+              </CardContent>
             </TabsContent>
-            
+
             {/* Likes Tab */}
-            <TabsContent value="likes" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-xl">Liked Videos</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {likedVideos.length > 0 ? likedVideos.map((video) => (
-                      <div
-                        key={video._id}
-                        className="flex items-start border-b border-gray-200 pb-4"
-                      >
-                        <div 
-                          className="bg-gray-300 h-20 w-36 flex-shrink-0 rounded mr-4 relative cursor-pointer"
-                          onClick={() => navigate(`/video/${video.title}`)}
-                        >
-                          {video.thumbnail && (
-                            <img
-                              src={video.thumbnail}
-                              alt={video.title}
-                              className="h-full w-full object-cover rounded"
-                            />
-                          )}
-                          <div className="absolute bottom-1 right-1 bg-black bg-opacity-70 text-white text-xs px-1 rounded">
-                            {video.duration || "00:00"}
-                          </div>
-                        </div>
-                        <div className="flex-1">
-                          <h3 
-                            className="font-medium mb-1 hover:text-blue-600 cursor-pointer"
-                            onClick={() => navigate(`/video/${video.title}`)}
-                          >
-                            {video.title}
-                          </h3>
-                          <div className="flex space-x-3 text-xs text-gray-500">
-                            <span>{video.views || 0} views</span>
-                            <span>{video.likes?.length || 0} likes</span>
-                            <span>
-                              {new Date(video.createdAt).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )) : (
-                      renderEmptyState("liked videos", "Browse Videos", () => navigate("/"))
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+            <TabsContent 
+              value="likes" 
+              className="space-y-4 bg-white/60 backdrop-blur-lg rounded-2xl p-6 border border-white/30 shadow-xl"
+            >
+              <CardHeader>
+                <CardTitle className="text-xl text-gray-800">Liked Videos</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {likedVideos.length > 0 ? (
+                  likedVideos.map((video) => renderItemCard(video, 'video'))
+                ) : (
+                  renderEmptyState("liked videos", "Browse Videos", () => navigate("/explore"))
+                )}
+              </CardContent>
             </TabsContent>
 
             {/* Comments Tab */}
-            <TabsContent value="comments" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-xl">Your Comments</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {comments && comments.length > 0 ? (
-                    <div className="space-y-4">
-                      {comments.map((comment) => (
-                        <div key={comment._id} className="p-4 border rounded-lg">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center">
-                              <div>
-                                <h4 
-                                  className="font-medium text-blue-600 cursor-pointer" 
-                                  onClick={() => navigate(`/video/${comment.video}`)}
-                                >
-                                  {comment.videoTitle || "Video"}
-                                </h4>
-                                <p className="text-xs text-gray-500">
-                                  {new Date(comment.createdAt).toLocaleString()}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                          <p className="mt-3">{comment.content}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    renderEmptyState("comments", "Browse Videos", () => navigate("/"))
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Playlists Tab */}
-            <TabsContent value="playlists" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-xl">Your Playlists</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {playlists.map((playlist) => (
-                      <div
-                        key={playlist._id}
-                        className="flex items-start border-b border-gray-200 pb-4"
-                      >
-                        <div className="bg-gray-300 h-20 w-36 flex-shrink-0 rounded mr-4 relative">
-                          {playlist.videos && playlist.videos[0]?.thumbnail && (
-                            <img
-                              src={playlist.videos[0].thumbnail}
-                              alt={playlist.name}
-                              className="h-full w-full object-cover rounded"
-                            />
-                          )}
-                          <div className="absolute bottom-1 right-1 bg-black bg-opacity-70 text-white text-xs px-1 rounded">
-                            {playlist.videos?.length || 0} videos
-                          </div>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-medium mb-1 hover:text-blue-600 cursor-pointer"
-                              onClick={() => navigate(`/playlist/${playlist._id}`)}>
-                            {playlist.name}
-                          </h3>
-                          <p className="text-xs text-gray-500">{playlist.description}</p>
-                          <div className="flex space-x-3 text-xs text-gray-500 mt-1">
-                            <span>Created: {new Date(playlist.createdAt).toLocaleDateString()}</span>
-                            <span>{playlist.isPublic ? "Public" : "Private"}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-
-                    {playlists.length === 0 && (
-                      renderEmptyState("playlists", "Create Your First Playlist", () => navigate("/playlist/create"))
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Subscribers Tab */}
-            <TabsContent value="subscribers" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-xl">Your Subscribers</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {subscribers.map((subscriber) => (
-                      <div key={subscriber._id} className="flex items-center p-3 border rounded-lg">
-                        <div className="h-12 w-12 rounded-full bg-gray-200 overflow-hidden mr-3">
-                          {subscriber.avatar && (
-                            <img
-                              src={subscriber.avatar}
-                              alt={subscriber.username}
-                              className="h-full w-full object-cover"
-                            />
-                          )}
-                        </div>
+            <TabsContent 
+              value="comments" 
+              className="space-y-4 bg-white/60 backdrop-blur-lg rounded-2xl p-6 border border-white/30 shadow-xl"
+            >
+              <CardHeader>
+                <CardTitle className="text-xl text-gray-800">Your Comments</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {comments && comments.length > 0 ? (
+                  comments.map((comment) => (
+                    <div 
+                      key={comment.id} 
+                      className="bg-white/70 backdrop-blur-lg rounded-xl p-4 shadow-md border border-white/30 hover:shadow-xl transition-all"
+                    >
+                      <div className="flex items-start justify-between">
                         <div>
                           <h4 
-                            className="font-medium cursor-pointer hover:text-blue-600"
-                            onClick={() => navigate(`/channel/${subscriber.username}`)}
+                            className="font-medium text-blue-600 cursor-pointer hover:text-blue-800" 
+                            onClick={() => navigate(`/video/${comment.videoId}`)}
                           >
-                            {subscriber.name || subscriber.username}
+                            {comment.videoTitle || "Video"}
                           </h4>
                           <p className="text-xs text-gray-500">
-                            {subscriber.subscribedAt || "Subscribed recently"}
+                            {new Date(comment.createdAt).toLocaleString()}
                           </p>
                         </div>
                       </div>
-                    ))}
-
-                    {subscribers.length === 0 && (
-                      renderEmptyState("subscribers", "Create More Content", () => navigate("/VideoUpload"))
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Tweets Tab */}
-            <TabsContent value="tweets" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-xl">Your Tweets</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {tweets.map((tweet) => (
-                      <div
-                        key={tweet._id}
-                        className="p-4 border rounded-lg"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center">
-                            <div className="h-10 w-10 rounded-full bg-gray-200 overflow-hidden mr-3">
-                              {user.avatar && (
-                                <img
-                                  src={user.avatar}
-                                  alt={user.username}
-                                  className="h-full w-full object-cover"
-                                />
-                              )}
-                            </div>
-                            <div>
-                              <h4 className="font-medium">{user.username}</h4>
-                              <p className="text-xs text-gray-500">
-                                {new Date(tweet.createdAt).toLocaleString()}
-                              </p>
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-600"
-                            onClick={() => deleteTweet(tweet._id)}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                        <p className="mt-3">{tweet.content}</p>
-                      </div>
-                    ))}
-
-                    {tweets.length === 0 && (
-                      renderEmptyState("tweets", "Create Your First Tweet", () => {/* Add create tweet functionality */})
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* History Tab */}
-            <TabsContent value="history" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-xl">Watch History</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {watchHistory && watchHistory.length > 0 ? (
-                    <div className="space-y-4">
-                      {watchHistory.map((item) => (
-                        <div
-                          key={item._id || item.id}
-                          className="flex items-start border-b border-gray-200 pb-4 cursor-pointer"
-                          onClick={() => navigate(`/video/${item.title}`)}
-                        >
-                          <div className="bg-gray-300 h-20 w-36 flex-shrink-0 rounded mr-4 relative">
-                            {item.thumbnail && (
-                              <img
-                                src={item.thumbnail}
-                                alt={item.title}
-                                className="h-full w-full object-cover rounded"
-                              />
-                            )}
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-medium mb-1 hover:text-blue-600">
-                              {item.title}
-                            </h3>
-                            <p className="text-xs text-gray-500">
-                              Watched: {new Date(item.watchedAt || item.createdAt).toLocaleString()}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
+                      <p className="mt-3 text-gray-700">{comment.content}</p>
                     </div>
-                  ) : (
-                    renderEmptyState("watch history", "Browse Videos", () => navigate("/"))
-                  )}
-                </CardContent>
-              </Card>
+                  ))
+                ) : (
+                  renderEmptyState("comments", "Browse Videos", () => navigate("/explore"))
+                )}
+              </CardContent>
             </TabsContent>
+
+            {/* Playlists Tab */}
+            <TabsContent 
+              value="playlists" 
+              className="space-y-4 bg-white/60 backdrop-blur-lg rounded-2xl p-6 border border-white/30 shadow-xl"
+            >
+              <CardHeader>
+                <CardTitle className="text-xl text-gray-800">Your Playlists</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {playlists.length > 0 ? (
+                  playlists.map((playlist) => renderItemCard(
+                    playlist, 
+                    'playlist', 
+                    [
+                      { 
+                        label: 'View', 
+                        onClick: () => navigate(`/playlist/${playlist.id}`),
+                        className: 'text-blue-600'
+                      }
+                    ]
+                  ))
+                ) : (
+                  renderEmptyState("playlists", "Create Your First Playlist", () => navigate("/playlist/create"))
+                )}
+              </CardContent>
+            </TabsContent>
+
+            {/* Subscribers Tab */}
+            <TabsContent 
+              value="subscribers" 
+              className="space-y-4 bg-white/60 backdrop-blur-lg rounded-2xl p-6 border border-white/30 shadow-xl"
+            >
+              <CardHeader>
+                <CardTitle className="text-xl text-gray-800">Your Subscribers</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {subscribers.length > 0 ? (
+                  subscribers.map((subscriber) => (
+                    <div 
+                      key={subscriber.id} 
+                      className="bg-white/70 backdrop-blur-lg rounded-xl p-4 shadow-md border border-white/30 flex items-center hover:shadow-xl transition-all transform hover:-translate-y-1"
+                    >
+                      <div className="h-12 w-12 rounded-full bg-gray-200 overflow-hidden mr-4">
+                        {subscriber.avatar ? (
+                          <img
+                            src={subscriber.avatar}
+                            alt={subscriber.username}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                            <Users className="text-gray-500" />
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <h4 
+                          className="font-medium cursor-pointer hover:text-blue-600"
+                          onClick={() => navigate(`/channel/${subscriber.username}`)}
+                        >
+                          {subscriber.fullName || subscriber.username}
+                        </h4>
+                        <p className="text-xs text-gray-500">
+                          {subscriber.subscribedAt 
+                            ? new Date(subscriber.subscribedAt).toLocaleDateString() 
+                            : "Subscribed recently"}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  renderEmptyState("subscribers", "Create More Content", () => navigate("/VideoUpload"))
+                )}
+              </CardContent>
+            </TabsContent>
+
+<TabsContent 
+  value="tweets" 
+  className="space-y-4 bg-white/60 backdrop-blur-lg rounded-2xl p-6 border border-white/30 shadow-xl"
+>
+  <CardHeader>
+    <CardTitle className="text-xl text-gray-800">Your Tweets</CardTitle>
+  </CardHeader>
+  <CardContent className="space-y-4">
+    {tweets.length > 0 ? (
+      tweets.map((tweet) => renderItemCard(
+        tweet, 
+        'tweet', 
+        [
+          { 
+            label: <Trash2 className="w-4 h-4 text-red-500" />, 
+            onClick: () => deleteTweet(tweet.id),
+            className: 'text-red-600 hover:bg-red-50'
+          }
+        ]
+      ))
+    ) : (
+      renderEmptyState("tweets", "Create Your First Tweet", () => navigate("/create-tweet"))
+    )}
+  </CardContent>
+</TabsContent>
+
+{/* Watch History Tab */}
+<TabsContent 
+  value="history" 
+  className="space-y-4 bg-white/60 backdrop-blur-lg rounded-2xl p-6 border border-white/30 shadow-xl"
+>
+  <CardHeader>
+    <CardTitle className="text-xl text-gray-800">Watch History</CardTitle>
+  </CardHeader>
+  <CardContent>
+    {watchHistory && watchHistory.length > 0 ? (
+      <div className="space-y-4">
+        {paginatedHistory.map((item) => renderItemCard(item, 'video'))}
+
+        {/* Pagination Controls */}
+        {watchHistory.length > itemsPerPage && (
+          <div className="flex justify-center items-center mt-6 space-x-4">
+            <Button
+              variant="outline"
+              className="bg-white/70 backdrop-blur-lg border-gray-200 hover:bg-gray-100 transition-all transform hover:scale-105"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-5 w-5 text-gray-600" />
+            </Button>
+            <span className="text-sm text-gray-600">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              className="bg-white/70 backdrop-blur-lg border-gray-200 hover:bg-gray-100 transition-all transform hover:scale-105"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+            >
+              <ChevronRight className="h-5 w-5 text-gray-600" />
+            </Button>
+          </div>
+        )}
+      </div>
+    ) : (
+      renderEmptyState("watch history", "Browse Videos", () => navigate("/explore"))
+    )}
+  </CardContent>
+</TabsContent>
           </Tabs>
         </div>
       </div>
@@ -705,3 +730,4 @@ function Dashboard() {
 }
 
 export default Dashboard;
+           

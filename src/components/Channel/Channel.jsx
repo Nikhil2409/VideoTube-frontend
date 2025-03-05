@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Users, Heart, MessageSquare, Share2 } from 'lucide-react';
 import { Navbar } from "../Navbar.jsx";
+import { useAuth } from "../../context/AuthContext.jsx"
+import { set } from 'date-fns';
 
 // Dummy data that will be used if API calls fail
 const DUMMY_CHANNEL = {
@@ -74,13 +76,17 @@ const DUMMY_TWEETS = [
 const Channel = () => {
   const { username } = useParams();
   const navigate = useNavigate();
+  const {user} = useAuth();
   const [isLoading, setIsLoading] = useState(true);
+  const [owner, setOwner] = useState(null);
   const [channel, setChannel] = useState(null);
   const [videos, setVideos] = useState([]);
   const [tweets, setTweets] = useState([]);
   const [activeTab, setActiveTab] = useState('videos');
   const [error, setError] = useState('');
   const [isSubscribing, setIsSubscribing] = useState(false);
+  const [subscribers, setSubscribers] = useState(0);
+  const [isSubscribed, setIsSubscribed] = useState(false);
   
   const api = axios.create({
     baseURL: "http://localhost:3900",
@@ -97,6 +103,10 @@ const Channel = () => {
         const response = await api.get(`/api/v1/users/c/${username}`);
         setChannel(response.data.data);
         console.log("channel");
+        console.log(response);
+        setIsSubscribed(response.data.data.isSubscribed);
+        setSubscribers(response.data.data.subscribersCount);
+        setOwner(response.data.data.id);
         const accessToken = username.accessToken;
         // Fetch videos for this channel
         const videoResponse = await api.get(`/api/v1/videos/user/${username}`,{
@@ -105,10 +115,10 @@ const Channel = () => {
         setVideos(videoResponse.data.videos || DUMMY_VIDEOS);
         console.log("videos");
         
-        // Fetch tweets for this channel
-        const tweetsResponse = await api.get(`/api/v1/tweets/user/${response.data.data._id}`);
-        setTweets(tweetsResponse.data.data || DUMMY_TWEETS);
-        console.log("tweets");
+        // // Fetch tweets for this channel
+        // const tweetsResponse = await api.get(`/api/v1/tweets/user/${response.data.data._id}`);
+        // setTweets(tweetsResponse.data.data || DUMMY_TWEETS);
+        // console.log("tweets");
       } catch (error) {
         console.error("API error:", error);
         
@@ -137,49 +147,39 @@ const Channel = () => {
     } else if (username) {
       fetchChannelData();
     }
-  }, [username]);
-
-  const toggleSubscribe = async () => {
-    if (!channel || isSubscribing) return;
+  }, [username,subscribers]);
+ 
+  const handleSubscribe = async () => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+    
+    if (isSubscribing) return;
     
     setIsSubscribing(true);
     
     try {
-      // Update UI optimistically
-      setChannel(prev => ({
-        ...prev,
-        isSubscribed: !prev.isSubscribed,
-        subscribersCount: prev.isSubscribed ? prev.subscribersCount - 1 : prev.subscribersCount + 1
-      }));
+      const accessToken = user.accessToken;
       
-      // Call the API to toggle subscription
-      const response = await api.post(`/api/v1/subscriptions/c/${channel._id}`);
+      const response = await api.post(`/api/v1/subscriptions/c/${owner}`, {}, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
       
-      // If there was an error, revert the UI change
-      if (!response.data.success) {
-        setChannel(prev => ({
-          ...prev,
-          isSubscribed: !prev.isSubscribed,
-          subscribersCount: !prev.isSubscribed ? prev.subscribersCount - 1 : prev.subscribersCount + 1
-        }));
-        setError("Failed to update subscription");
+      if (response.data.success) {
+        setIsSubscribed(!isSubscribed);
+        setSubscribers(prev => isSubscribed ? prev - 1 : prev + 1);
+      } else {
+        throw new Error("Subscription update failed");
       }
     } catch (error) {
-      console.error("Subscription error:", error);
-      
-      // Revert UI change on error
-      setChannel(prev => ({
-        ...prev,
-        isSubscribed: !prev.isSubscribed,
-        subscribersCount: !prev.isSubscribed ? prev.subscribersCount - 1 : prev.subscribersCount + 1
-      }));
-      
-      setError(error.response?.data?.message || "Failed to update subscription");
+      console.error("Error toggling subscription:", error);
+      setError("Failed to update subscription status");
     } finally {
       setIsSubscribing(false);
     }
   };
-
+  
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -247,16 +247,17 @@ const Channel = () => {
               </div>
               
               <button 
-  onClick={toggleSubscribe}
+  onClick={handleSubscribe}
   disabled={isSubscribing}
   className={`px-4 py-2 rounded-md font-medium ${
     isSubscribing ? 'bg-gray-300 text-gray-500' : 
-    channel.isSubscribed ? 'bg-gray-200 text-gray-800 hover:bg-gray-300' : 
+    isSubscribed ? 'bg-gray-200 text-gray-800 hover:bg-gray-300' : 
     'bg-red-600 text-white hover:bg-red-700'
   }`}
 >
-  {isSubscribing ? 'Processing...' : channel.isSubscribed ? 'Subscribed' : 'Subscribe'}
+  {isSubscribing ? 'Processing...' : isSubscribed ? 'Subscribed' : 'Subscribe'}
 </button>
+
             </div>
           </div>
           
@@ -290,7 +291,7 @@ const Channel = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {videos.map(video => (
                       <div key={video._id} className="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                        <div className="relative pt-[56.25%] bg-gray-200" onClick={() => navigate(`/video/${video.title}`)}>
+                        <div className="relative pt-[56.25%] bg-gray-200" onClick={() => navigate(`/video/${video.id}`)}>
                           {video.thumbnail ? (
                             <img 
                               src={video.thumbnail} 

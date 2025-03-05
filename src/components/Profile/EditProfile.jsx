@@ -211,19 +211,23 @@ const EditProfile = ({ user }) => {
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    
     if (newPassword !== confirmPassword) {
       setError("New passwords don't match");
       return;
     }
+    
     try {
       setIsLoading(true);
+      // Use the dedicated password change endpoint
       await api.patch(
-        "/api/v1/users/update-account",
-        { newPassword },
+        "/api/v1/users/change-password",
+        { oldPassword, newPassword },
         {
           headers: { Authorization: `Bearer ${accessToken}` },
         }
       );
+      
       setShowPasswordPopup(false);
       setMessage("Password changed successfully!");
       setOldPassword("");

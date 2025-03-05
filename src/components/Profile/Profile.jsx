@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import Cookies from "js-cookie";
 import { useAuth } from "../../context/AuthContext.jsx";
-import { LogOut, Pencil, LayoutDashboard } from "lucide-react";
+import { LogOut, Pencil, ArrowLeft } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,12 +14,8 @@ import { Button } from "../ui/button.jsx";
 
 const Profile = () => {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const [subscriber, setSubscriber] = useState({
-      subscribers: [],
-    });
-  const [videos, setVideo] = useState({
-      videos: [],
-  });
+  const [subscribers, setSubscribers] = useState([]);
+  const [videos, setVideos] = useState([]);
   
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -33,12 +29,15 @@ const Profile = () => {
     coverImage: "",
     watchHistory: [],
     createdAt: "",
+    watchHistoryIds:[],
     stats: {
+      totalVideos:"",
+      totalSubscribers:"",
       totalLikes: "",
       totalViews: "",
     },
   });
-  const accessToken = user?.accessToken;
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -46,36 +45,75 @@ const Profile = () => {
     baseURL: "http://localhost:3900",
     withCredentials: true,
   });
-  const username = user?.username;
+
+  // Fetch user data first
   useEffect(() => {
-    const fetchSubscribers = async () => {
+    const fetchUserData = async () => {
       try {
-        const subscribersResponse = await api.get(`/api/v1/subscriptions/u/${username}`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
+        setLoading(true);
+
+        const token = Cookies.get("accessToken");
+        const response = await api.get("/api/v1/users/current-user", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         });
-        setSubscriber(subscribersResponse.data?.data?.subscribers);
+
+        const stats = await api.get(`/api/v1/dashboard/stats/${response.data.data._id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        setUser((prevUser) => ({
+          ...prevUser,
+          ...response.data.data,
+          stats: stats.data.data,
+        }));
       } catch (err) {
-        console.error("Error fetching subscribers:", err);
+        console.error("Error fetching user data:", err);
+        setError("Failed to load profile data. Please try again later.");
+
+        if (err.response && err.response.status === 401) {
+          navigate("/login");
+        }
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchSubscribers();
-  }, [username, accessToken]);
+    fetchUserData();
+  }, [navigate]);
 
+  // Fetch subscribers and videos after user data is loaded
   useEffect(() => {
-    const fetchVideos = async () => {
-      try{
-      const videoResponse = await api.get(`/api/v1/videos/user/${username}`,{
-        headers: { Authorization: `Bearer ${accessToken}`  },
-      });
-      setVideo(videoResponse?.data?.videos);
+    const fetchSubscribersAndVideos = async () => {
+      if (!user.id || !user.username) return;
+      
+      const token = Cookies.get("accessToken");
+      
+      try {
+        // Fetch subscribers
+        const subscribersResponse = await api.get(`/api/v1/subscriptions/u/${user.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setSubscribers(subscribersResponse.data?.data?.subscribers || []);
+        
+        // Fetch videos
+        const videoResponse = await api.get(`/api/v1/videos/user/${user.username}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setVideos(videoResponse.data?.videos || []);
       } catch (err) {
-        console.error("Error fetching videos:", err);
+        console.error("Error fetching profile data:", err);
       }
     };
 
-    fetchVideos();
-  }, [username, accessToken]);
+    if (!loading && user.id) {
+      fetchSubscribersAndVideos();
+    }
+  }, [user.id, user.username, loading]);
+
   // Function to generate dummy watch history
   const getDummyWatchHistory = () => {
     return [
@@ -105,46 +143,43 @@ const Profile = () => {
       },
     ];
   };
+  
+  const getVideos = async (watchHistory) => {
+    try {
+      const token = Cookies.get("accessToken");
 
-  // Fetch user data
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        setLoading(true);
-
-        const token = Cookies.get("accessToken");
-        const response = await api.get("/api/v1/users/current-user", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        const stats = await api.get("/api/v1/dashboard/stats", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        console.log(response);
-        setUser((prevUser) => ({
-          ...prevUser,
-          ...response.data.data,
-          stats: stats.data,
-        }));
-      } catch (err) {
-        console.error("Error fetching user data:", err);
-        setError("Failed to load profile data. Please try again later.");
-
-        if (err.response && err.response.status === 401) {
-          navigate("/login");
-        }
-      } finally {
-        setLoading(false);
+      if (!token) {
+        console.error('No authentication token found');
+        setVideos([]);
+        return [];
       }
-    };
 
-    fetchUserData();
-  }, [navigate]);
+      const videoPromises = watchHistory.map(async (videoId) => {
+        try {
+          const response = await api.get(`/api/v1/videos/${videoId}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            withCredentials: true,
+          });
+          return response.data.data;
+        } catch (error) {
+          console.error(`Error fetching video ${videoId}:`, error);
+          return null;
+        }
+      });
+
+      const videosArray = await Promise.all(videoPromises);
+      const validVideos = videosArray.filter(video => video !== null);
+      setVideos(validVideos);
+
+      return validVideos;
+    } catch (error) {
+      console.error('Error in getVideos:', error);
+      setVideos([]);
+      return []; 
+    }
+  };
 
   if (loading) {
     return (
@@ -189,8 +224,13 @@ const Profile = () => {
     );
   }
 
-  const watchHistory =
-    user.watchHistory?.length > 0 ? user.watchHistory : getDummyWatchHistory();
+  let watchHistory = [];
+  if(user.watchHistoryIds?.length > 0){
+    getVideos(user.watchHistoryIds);
+    watchHistory = videos;
+  }else{
+    watchHistory = getDummyWatchHistory();
+  }
 
   const handleLogout = async () => {
     try {
@@ -244,6 +284,16 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-indigo-100">
+      {/* Back Button */}
+      <div className="absolute top-4 left-4 z-10">
+        <button 
+          onClick={() => navigate(-1)} 
+          className="bg-white/80 hover:bg-white transition-colors rounded-full p-2 shadow-md flex items-center justify-center"
+        >
+          <ArrowLeft className="w-6 h-6 text-gray-700" />
+        </button>
+      </div>
+
       {/* Cover Image */}
       <div
         className="h-72 w-full bg-cover bg-center"
@@ -357,11 +407,11 @@ const Profile = () => {
                       ></div>
                       <div className="overflow-hidden">
                         <h3 className="font-medium text-sm sm:text-base truncate text-gray-800">
-                          {video.title}
+                        {video.title}
                         </h3>
                         <p className="text-xs sm:text-sm text-gray-500 truncate">
-                          {new Date(video.watchedAt).toLocaleDateString()} at{" "}
-                          {new Date(video.watchedAt).toLocaleTimeString([], {
+                          {new Date(video.createdAt).toLocaleDateString()} at{" "}
+                          {new Date(video.createdAt).toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
@@ -394,14 +444,6 @@ const Profile = () => {
                   <Pencil className="w-4 h-4" />
                   <span>Edit Profile</span>
                 </button>
-
-                <button
-                  className="w-full px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-500 transition-colors shadow-sm hover:shadow flex items-center justify-center gap-2"
-                  onClick={() => navigate("/dashboard")}
-                >
-                  <LayoutDashboard className="w-4 h-4" />
-                  <span>Go to Dashboard</span>
-                </button>
               </div>
             </div>
 
@@ -416,7 +458,7 @@ const Profile = () => {
                     Total Videos
                   </span>
                   <span className="font-semibold bg-white px-3 py-1 rounded-lg text-center min-w-16 shadow-sm text-blue-700">
-                    {videos?.length || 0}
+                    {user.stats?.totalVideos || 0}
                   </span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm">
@@ -424,26 +466,26 @@ const Profile = () => {
                     Total Subscribers
                   </span>
                   <span className="font-semibold bg-white px-3 py-1 rounded-lg text-center min-w-16 shadow-sm text-blue-700">
-                    {subscriber?.length || "N/A"}
+                    {user.stats?.totalSubscribers || 0}
                   </span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm">
                   <span className="text-gray-700 font-medium">Total Likes</span>
                   <span className="font-semibold bg-white px-3 py-1 rounded-lg text-center min-w-16 shadow-sm text-blue-700">
-                    {user.stats?.totalLikes || "N/A"}
+                    {user.stats?.totalLikes || 0}
                   </span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm">
                   <span className="text-gray-700 font-medium">Total Views</span>
                   <span className="font-semibold bg-white px-3 py-1 rounded-lg text-center min-w-16 shadow-sm text-blue-700">
-                    {user.stats?.totalViews || "N/A"}
+                    {user.stats?.totalViews || 0}
                   </span>
                 </div>
               </div>
             </div>
 
             {/* Logout Button */}
-            <div className="bg-white rounded-lg shadow-lg  border border-blue-100">
+            <div className="bg-white rounded-lg shadow-lg border border-blue-100">
               <div className="space-y-3">
                 <button
                   className="flex items-center justify-center gap-2 p-3 text-red-600 font-bold rounded-lg 

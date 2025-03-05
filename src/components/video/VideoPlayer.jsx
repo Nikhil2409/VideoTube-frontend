@@ -23,43 +23,59 @@ const api = axios.create({
 
 // Dummy data for testing when API calls fail
 const DUMMY_VIDEO = {
-  _id: "vid123",
+  id: "vid123",
   title: "Building a YouTube Clone with React and Node.js",
   description: "In this tutorial, we build a complete YouTube clone using React for the frontend and Node.js for the backend. Learn how to implement video uploads, streaming, authentication, and more!",
   videoFile: "https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4",
   thumbnail: "https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0",
   views: 1248,
-  likes: { length: 87 },
-  comments: { length: 24 },
-  duration: "12:34",
+  duration: 754, // In seconds as per schema
   createdAt: "2024-02-15T12:00:00Z",
-  owner: {
-    _id: "user123",
-    username: "techcreator",
-    fullName: "Tech Creator",
-    avatar: "https://randomuser.me/api/portraits/men/32.jpg",
-    subscribersCount: 5420,
-    isSubscribed: false
-  }
+  owner: "user123"
 };
 
 function VideoPlayer() {
-  const { videotitle } = useParams();
+  const { videoId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [video, setVideo] = useState(null);
-  const [subscribers, setSubscribers] = useState(null);
+  const [owner, setOwner] = useState(null);
+  const [subscribers, setSubscribers] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
+  const [commentCount, setCommentCount] = useState(0);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isSubscribing, setIsSubscribing] = useState(false);
   const viewCountUpdated = useRef(false);
   
-  // Function to fetch video details - extracted for reuse
+  // Format seconds into MM:SS
+  const formatDuration = (seconds) => {
+    if (!seconds && seconds !== 0) return "--:--";
+    
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+  
+  const addToWatchHistory = async () => {
+    if(!videoId) return;
+    
+    try{
+      const accessToken = user?.accessToken;
+      const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+
+      const response = await api.post(`/api/v1/users/addToWatchHistory/${videoId}`, { headers }); 
+      console.log(response);
+    }catch(error){
+      console.error("Error fetching video:", error);
+    }
+  } 
+
+  // Function to fetch video details
   const fetchVideoDetails = async () => {
-    if (!videotitle) return;
+    if (!videoId) return;
     
     setIsLoading(true);
     setError("");
@@ -68,51 +84,67 @@ function VideoPlayer() {
       const accessToken = user?.accessToken;
       const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
       
-      const response = await api.get(`/api/v1/videos/${videotitle}`, {
-          headers
-        });
+      // Single API call to get video data
+      const response = await api.get(`/api/v1/videos/${videoId}`, { headers });
       
-      const res = await api.get(`/api/v1/subscriptions/u/${response.data.data.owner.username}`, {
-          headers
-        });
-      const subscribersCount = res.data.data.subscribers.length;
-      console.log(res);
+      // Extract video data from the response
       const videoData = response.data.data;
-      console.log(videoData);
+      
+      // Set video data
       setVideo(videoData);
-      setSubscribers(subscribersCount);
+      
+      // Extract owner data directly from the response
+      if (videoData.owner) {
+        setOwner(videoData.owner);
+        
+        // Extract subscribers count directly from owner object
+        setSubscribers(videoData.owner.subscribersCount || 0);
+        
+        // Check if current user is subscribed from isSubscribed property
+        setIsSubscribed(videoData.owner.isSubscribed || false);
+      }
+      
+      // Extract likes count directly from video data
+      setLikeCount(videoData.likesCount || 0);
+      
+      // Check if current user has liked the video
       setIsLiked(videoData.isLiked || false);
-      setLikeCount(videoData.likes?.length || 0);
-      setIsSubscribed(videoData.owner?.isSubscribed || false);
+      
+      // Extract comments count from comments array
+      setCommentCount(videoData.comments ? videoData.comments.length : 0);
+      
+      addToWatchHistory();
     } catch (error) {
       console.error("Error fetching video:", error);
       // Use dummy data if API fails
-      setSubscribers(0);
       setVideo(DUMMY_VIDEO);
+      setOwner(null);
+      setSubscribers(0);
       setIsLiked(false);
-      setLikeCount(DUMMY_VIDEO.likes.length);
-      setIsSubscribed(DUMMY_VIDEO.owner.isSubscribed);
+      setLikeCount(0);
+      setCommentCount(0);
       setError("Failed to fetch video data. Using placeholder content.");
     } finally {
       setIsLoading(false);
     }
   };
   
+  
   // Separate effect for video fetch - high priority
   useEffect(() => {
     fetchVideoDetails();
-  }, [videotitle, user]);
+  }, [videoId, user]);
   
   // Separate effect for view count - lower priority
   useEffect(() => {
     const updateViewCount = async () => {
-      if (!videotitle || !video || viewCountUpdated.current) return;
+      if (!videoId || !video || viewCountUpdated.current) return;
       
       try {
         const accessToken = user?.accessToken;
         const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
         
-        await api.patch(`/api/v1/videos/incrementViews/${videotitle}`, {}, { headers });
+        await api.patch(`/api/v1/videos/incrementViews/${videoId}`, {}, { headers });
         viewCountUpdated.current = true;
       } catch (error) {
         console.error("Error updating view count:", error);
@@ -121,7 +153,7 @@ function VideoPlayer() {
     };
     
     updateViewCount();
-  }, [videotitle, video, user]);
+  }, [videoId, video, user]);
   
   const handleLikeToggle = async () => {
     if (!user) {
@@ -135,14 +167,11 @@ function VideoPlayer() {
     
     try {
       const accessToken = user.accessToken;
-      // FIX: The headers should be in config object, not in data object
-      await api.post(`/api/v1/likes/toggle/v/${videotitle}`, user, {
+      await api.post(`/api/v1/likes/toggle/v/${videoId}`, {}, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       
-      // Refresh video data after like toggle
-      await fetchVideoDetails();
-      
+      // No need to refetch everything, we've already updated the UI
     } catch (error) {
       console.error("Error toggling like:", error);
       // Revert optimistic update on error
@@ -158,26 +187,26 @@ function VideoPlayer() {
       return;
     }
     
-    if (!video?.owner?._id || isSubscribing) return;
+    if (!video?.owner || isSubscribing) return;
     
     setIsSubscribing(true);
     
     // Optimistic UI update
     setIsSubscribed(!isSubscribed);
+    setSubscribers(prev => isSubscribed ? prev - 1 : prev + 1);
     
     try {
       const accessToken = user.accessToken;
-      await api.post(`/api/v1/subscriptions/c/${video.owner._id}`, {}, {
+      await api.post(`/api/v1/subscriptions/c/${video.owner.id}`, {}, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       
-      // Refresh video data after subscription toggle
-      await fetchVideoDetails();
-      
+      // No need to refetch everything, we've already updated the UI
     } catch (error) {
       console.error("Error toggling subscription:", error);
       // Revert optimistic update on error
       setIsSubscribed(!isSubscribed);
+      setSubscribers(prev => !isSubscribed ? prev - 1 : prev + 1);
       setError("Failed to update subscription status");
     } finally {
       setIsSubscribing(false);
@@ -256,7 +285,7 @@ function VideoPlayer() {
               </div>
               <div className="flex items-center">
                 <Clock className="mr-1 h-4 w-4" />
-                <span>{video.duration}</span>
+                <span>{formatDuration(video.duration)}</span>
               </div>
             </div>
             
@@ -275,7 +304,7 @@ function VideoPlayer() {
                 className="flex items-center gap-1 text-gray-600"
               >
                 <MessageSquare className="h-4 w-4" />
-                <span>{video.comments?.length || 0}</span>
+                <span>{commentCount}</span>
               </Button>
               
               <Button
@@ -292,10 +321,10 @@ function VideoPlayer() {
           <div className="flex flex-wrap items-center justify-between py-4 border-t border-b border-gray-200">
             <div className="flex items-center">
               <div className="h-12 w-12 rounded-full bg-gray-300 overflow-hidden mr-3">
-                {video.owner?.avatar ? (
+                {owner?.avatar ? (
                   <img
-                    src={video.owner.avatar}
-                    alt={video.owner.fullName}
+                    src={owner.avatar}
+                    alt={owner.fullName}
                     className="h-full w-full object-cover"
                     loading="lazy"
                   />
@@ -304,9 +333,9 @@ function VideoPlayer() {
                 )}
               </div>
               <div>
-                <h3 className="font-medium">{video.owner?.fullName || "Channel Name"}</h3>
+                <h3 className="font-medium">{owner?.fullName || owner?.username || "Channel Name"}</h3>
                 <p className="text-sm text-gray-500">
-                  {subscribers || 0} subscribers
+                  {subscribers} subscribers
                 </p>
               </div>
             </div>
@@ -337,7 +366,7 @@ function VideoPlayer() {
         <Card>
           <CardContent className="p-4">
             <h2 className="text-xl font-bold mb-4">
-              Comments ({video.comments?.length || 0})
+              Comments ({commentCount})
             </h2>
             
             {/* Comment form could go here */}

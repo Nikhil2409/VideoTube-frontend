@@ -13,7 +13,7 @@ export const AuthProvider = ({ children }) => {
 
   // Check for existing token on initial load
   useEffect(() => {
-    const checkAuth = () => {
+    const checkAuth = async () => {
       try {
         const token = Cookies.get("accessToken");
         
@@ -23,12 +23,28 @@ export const AuthProvider = ({ children }) => {
           const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
           const payload = JSON.parse(window.atob(base64));
           
+          // Explicitly log the payload to see its structure
+          console.log("JWT Payload:", payload);
+
+          // Attempt to extract watchHistoryIds with multiple fallback methods
+          const watchHistoryIds = 
+            payload.watchHistoryIds || 
+            payload.watchHistory || 
+            payload.watchHistoryId || 
+            payload.watchHistoryids || 
+            payload.watchhistoryIds || 
+            [];
+
           setUser({
             accessToken: token,
-            id: payload._id || payload.id || payload.sub, // Include _id as well
+            id: payload._id || payload.id || payload.sub, 
             username: payload.username,
-            email: payload.email
+            email: payload.email,
+            watchHistoryIds: watchHistoryIds
           });
+
+          // Additional debug logging
+          console.log("Extracted Watch History IDs:", watchHistoryIds);
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
@@ -49,24 +65,50 @@ export const AuthProvider = ({ children }) => {
         secure: window.location.protocol === "https:", 
         sameSite: "Lax"
       });
-      console.log("Just set accessToken:", Cookies.get("accessToken"));
+      
       // Parse the JWT token to get user info
       const base64Url = token.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
       const payload = JSON.parse(window.atob(base64));
       
+      // Explicitly log the payload to see its structure
+      console.log("Login Payload:", payload);
+
+      // Attempt to extract watchHistoryIds with multiple fallback methods
+      const watchHistoryIds = 
+        payload.watchHistoryIds || 
+        payload.watchHistory || 
+        payload.watchHistoryId || 
+        payload.watchHistoryids || 
+        payload.watchhistoryIds || 
+        [];
+
       const userData = {
         accessToken: token,
-        id: payload._id || payload.id || payload.sub, // Include _id as well
+        id: payload._id || payload.id || payload.sub,
         username: payload.username,
-        email: payload.email
+        email: payload.email,
+        watchHistoryIds: watchHistoryIds
       };
+      
+      // Additional debug logging
+      console.log("Login Extracted Watch History IDs:", watchHistoryIds);
       
       setUser(userData);
       return true;
     } catch (error) {
       console.error("Login error:", error);
       return false;
+    }
+  };
+
+  // Update watch history method
+  const updateWatchHistory = (newWatchHistoryIds) => {
+    if (user) {
+      setUser(prevUser => ({
+        ...prevUser,
+        watchHistoryIds: newWatchHistoryIds
+      }));
     }
   };
 
@@ -86,7 +128,8 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     isAuthenticated,
-    loading
+    loading,
+    updateWatchHistory // Add the new method to update watch history
   };
 
   return (
