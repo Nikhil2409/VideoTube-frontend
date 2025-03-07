@@ -53,19 +53,13 @@ const Profile = () => {
         const token = Cookies.get("accessToken");
         
         // Fetch user profile data
-        const userResponse = await api.get("/api/v1/users/current-user", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        const userResponse = await api.get("/api/v1/users/current-user", { 
         });
         
         const userData = userResponse.data.data;
         
         // Fetch user stats
         const statsResponse = await api.get(`/api/v1/dashboard/stats/${userData._id}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
         });
         
         // Update user state with profile and stats data
@@ -76,9 +70,6 @@ const Profile = () => {
         
         // Fetch watch history
         const historyResponse = await api.get("/api/v1/users/history", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
         });
         setWatchHistory(historyResponse.data.data || []);
         
@@ -86,13 +77,11 @@ const Profile = () => {
         if (userData.id && userData.username) {
           // Fetch subscribers
           const subscribersResponse = await api.get(`/api/v1/subscriptions/u/${userData.id}`, {
-            headers: { Authorization: `Bearer ${token}` },
           });
           setSubscribers(subscribersResponse.data?.data?.subscribers || []);
           
           // Fetch videos
           const videoResponse = await api.get(`/api/v1/videos/user/${userData.username}`, {
-            headers: { Authorization: `Bearer ${token}` },
           });
           setVideos(videoResponse.data?.videos || []);
         }
@@ -147,12 +136,6 @@ const Profile = () => {
       await api.post(
         "/api/v1/users/logout",
         {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          withCredentials: true,
-        }
       );
       logout();
       navigate("/login");

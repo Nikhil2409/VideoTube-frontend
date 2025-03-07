@@ -170,7 +170,7 @@ function Navbar({onDataDelete}) {
         <Button 
           variant="outline" 
           size="icon" 
-          onClick={() => navigate("/makeTweet")}
+          onClick={() => navigate("/tweets/create")}
           className="hover:bg-gray-50"
         >
           <Pen className="h-5 w-5 text-blue-600" />

@@ -147,9 +147,6 @@ const EditProfile = ({ user }) => {
   const updateProfileInfo = async () => {
     try {
       await api.patch("/api/v1/users/update-account", formData, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
       });
       return true;
     } catch (error) {
@@ -223,9 +220,6 @@ const EditProfile = ({ user }) => {
       await api.patch(
         "/api/v1/users/change-password",
         { oldPassword, newPassword },
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }
       );
       
       setShowPasswordPopup(false);

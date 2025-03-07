@@ -110,7 +110,6 @@ function VideoPlayer() {
       
       // Fix: Headers should be passed as a config object, not in the request body
       await api.post(`/api/v1/users/addToWatchHistory/${videoId}`, {}, { 
-        headers: { Authorization: `Bearer ${accessToken}` } 
       }); 
     }catch(error){
       console.error("Error adding to watch history:", error);
@@ -134,6 +133,7 @@ function VideoPlayer() {
       // Extract video data from the response
       const videoData = response.data.data;
       
+      console.log(videoData);
       // Set video data
       setVideo(videoData);
       
@@ -245,9 +245,7 @@ const handleAddComment = async (e) => {
     const response = await api.post("/api/v1/comments", {
       videoId, 
       text: newComment  // Use "text" as expected by the backend
-    }, {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
+    }, );
     
     if (response.data.success) {
       const newCommentData = response.data.data;
@@ -281,8 +279,6 @@ const handleUpdateComment = async (commentId) => {
     // FIX: Use "text" field as shown in backend code (document 1)
     const response = await api.patch(`/api/v1/comments/${commentId}`, {
       text: editedCommentContent  // Use only "text" as expected by the backend
-    }, {
-      headers: { Authorization: `Bearer ${accessToken}` }
     });
     
     if (response.data.success) {
@@ -320,7 +316,6 @@ const handleUpdateComment = async (commentId) => {
       const accessToken = user.accessToken;
       
       const response = await api.delete(`/api/v1/comments/${commentId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
       });
       
       if (response.data.success) {
@@ -394,7 +389,6 @@ const handleUpdateComment = async (commentId) => {
     try {
       const accessToken = user.accessToken;
       await api.post(`/api/v1/likes/toggle/v/${videoId}`, {}, {
-        headers: { Authorization: `Bearer ${accessToken}` },
       });
       
       // No need to refetch everything, we've already updated the UI
@@ -420,7 +414,6 @@ const handleUpdateComment = async (commentId) => {
     try {
       const accessToken = user.accessToken;
       const response = await api.post(`/api/v1/subscriptions/c/${video.owner.id}`, {}, {
-        headers: { Authorization: `Bearer ${accessToken}` },
       });
       
       // Update subscription state based on the server response

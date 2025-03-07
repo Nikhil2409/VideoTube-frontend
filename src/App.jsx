@@ -14,8 +14,8 @@ import PlaylistCreate from "./components/PlaylistCreate";
 import PlaylistView from "./components/PlaylistView";
 //import PlaylistEdit from "./components/PlaylistEdit";
 //import ChannelView from "./components/ChannelView";
-//import TweetCreate from "./components/TweetCreate";
-//import TweetEdit from "./components/TweetEdit";
+import TweetCreate from "./components/tweet/TweetCreate";
+import TweetShow from "./components/tweet/TweetShow.jsx";
 //import WatchHistory from "./components/WatchHistory";
 
 function App() {
@@ -41,7 +41,10 @@ function App() {
 
       <Route path="/likedVideos" element={<LikedVideosPage />} />
       <Route path="/create-playlist" element={<PlaylistCreate />} />
-      <Route path="/playlist/:playlistId" element={<PlaylistView />} />
+      <Route path="/playlist/:playlistId/:canEdit" element={<PlaylistView />} />
+
+      <Route path="/tweets/create" element={<TweetCreate />} />
+      <Route path="/tweet/:tweetId" element={<TweetShow />} />
     </Routes>
   );
 }
@@ -59,8 +62,7 @@ function App() {
 
           <Route path="/playlist/edit/:playlistId" element={<PlaylistEdit />} />
           
-          <Route path="/tweets/create" element={<TweetCreate />} />
-          <Route path="/tweet/edit/:tweetId" element={<TweetEdit />} />
+
 
           */
 

@@ -179,37 +179,38 @@ function Dashboard() {
     try {
       // Fetch subscribers
       const subscribersResponse = await api.get(`/api/v1/subscriptions/u/${userId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        signal,
+        signal
       }).catch(() => ({ data: { data: { subscribers: [] } } }));
       
       const likesResponse = await api.get(`/api/v1/likes/videos`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        signal,
+        signal
       }).catch(() => ({ data: { data: { likes: [] } } }));
       
       // Fetch dashboard videos
       const dashboardVideosResponse = await api.get(`/api/v1/videos/user/id/${userId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
+       signal
       });
       
       // Fetch watch history using the new endpoint
       const watchHistoryResponse = await api.get(`/api/v1/users/history`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        signal,
+        signal
       }).catch(() => ({ data: { data: [] } }));
       
+      //Fetch Comments
       const comments = await api.get(`/api/v1/comments/all/${userId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        signal,
+        signal
       })
       
+      //Fetch Playlists
       const playlists = await api.get(`/api/v1/playlist/user/${userId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        signal,
+        signal
+      })
+      
+      //Fetch Tweets
+      const tweets  = await api.get(`/api/v1/tweets/user/${userId}`, {
+        signal
       })
 
-      console.log(playlists);
       // Transform watch history data to match the expected format in your UI
       const formattedWatchHistory = watchHistoryResponse.data?.data?.map(item => ({
         id: item.video?.id,
@@ -223,7 +224,7 @@ function Dashboard() {
         completionRate: item.completionRate
       })) || [];
       
-      console.log(playlists);
+      console.log(tweets);
       // Update dashboard data
       setDashboardData(prevData => ({
         ...prevData,
@@ -233,7 +234,7 @@ function Dashboard() {
         comments: comments.data.data.comments || [],
         watchHistory: formattedWatchHistory,
         playlists: playlists.data.data || [],
-        tweets: dummyData.tweets,
+        tweets: tweets.data.tweets || []
       }));  
   
       // Update channel stats
@@ -308,7 +309,6 @@ function Dashboard() {
       
       // Call API to delete the comment
       const response = await api.delete(`/api/v1/comments/c/${commentId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
       });
       
       if (response.data.success) {
@@ -400,10 +400,6 @@ function Dashboard() {
     try {
       setIsLoading(true);
       const response = await api.patch(`/api/v1/videos/toggle/publish/${videoId}`, {}, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
       });
       // Update the videos state using previous state pattern
       setDashboardData(prev => ({
@@ -438,9 +434,6 @@ function Dashboard() {
     try {
       setIsLoading(true);
       await api.delete(`/api/v1/videos/${videoId}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
       });
 
       refreshDashboardData();
@@ -457,9 +450,6 @@ function Dashboard() {
     try {
       setIsLoading(true);
       await api.delete(`/api/v1/tweets/${tweetId}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
       });
 
       // Update the tweets state
@@ -526,17 +516,19 @@ const renderItemCard = (item, type, actions = []) => (
       if (type === 'video') {
         navigate(`/video/${item.id}`);
       } else if (type === 'playlist') {
-        navigate(`/playlist/${item.id}`);
+        navigate(`/playlist/${item.id}/false`);
+      } else if (type === 'tweet') {
+        navigate(`/tweet/${item.id}`);
       }
     }}
-    style={{ cursor: (type === 'video' || type === 'playlist') ? 'pointer' : 'default' }}
+    style={{ cursor: (type === 'video' || type === 'playlist' || type === 'tweet') ? 'pointer' : 'default' }}
   >
     {/* Thumbnail */}
     <div className="h-20 w-36 rounded-lg overflow-hidden flex-shrink-0 relative">
       {item.thumbnail ? (
         <img
           src={item.thumbnail}
-          alt={item.title || item.name}
+          alt={item.title || item.name || "Tweet Image"}
           className="w-full h-full object-cover"
         />
       ) : (
@@ -544,6 +536,7 @@ const renderItemCard = (item, type, actions = []) => (
           <Play className="text-gray-500" />
         </div>
       )}
+      
       {type === 'video' && (
         <div className="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-2 rounded">
           {formatDuration(item.duration) || "00:00"}
@@ -600,7 +593,7 @@ const renderItemCard = (item, type, actions = []) => (
             size="sm"
             className={`hover:bg-gray-100 ${action.className}`}
             onClick={(e) => {
-              e.stopPropagation();
+              e.stopPropagation(); // Prevent navigation on button click
               action.onClick();
             }}
           >
@@ -611,6 +604,7 @@ const renderItemCard = (item, type, actions = []) => (
     )}
   </div>
 );
+
 
   return (
     <div className="flex h-screen w-full bg-gradient-to-br from-gray-50 to-blue-50">
@@ -849,7 +843,7 @@ const renderItemCard = (item, type, actions = []) => (
           [
             { 
               label: 'Edit', 
-              onClick: () => navigate(`/playlist/${playlist.id}`),
+              onClick: () => navigate(`/playlist/${playlist.id}/true`),
               className: 'text-blue-600'
             },
             { 
@@ -933,40 +927,48 @@ const renderItemCard = (item, type, actions = []) => (
     )}
   </CardContent>
 </TabsContent>
+ 
+ {/* Tweets Tab */}
+<TabsContent
+  value="tweets" 
+  className="space-y-4 bg-white/60 backdrop-blur-lg rounded-2xl p-6 border border-white/30 shadow-xl"
+>
+  <CardHeader>
+    <CardTitle className="text-xl text-gray-800">Your Tweets</CardTitle>
+  </CardHeader>
+  <CardContent className="space-y-4">
+    {paginatedTweets.length > 0 ? (
+      paginatedTweets.map((tweet) => {
+        const tweetWithImage = {
+          ...tweet,
+          thumbnail: tweet.image || tweet.user?.avatar
+        };
 
-        {/* Twwets Tab*/}
-       <TabsContent
-         value="tweets" 
-         className="space-y-4 bg-white/60 backdrop-blur-lg rounded-2xl p-6 border border-white/30 shadow-xl"
-       >
-         <CardHeader>
-           <CardTitle className="text-xl text-gray-800">Your Tweets</CardTitle>
-         </CardHeader>
-         <CardContent className="space-y-4">
-           {paginatedTweets.length > 0 ? (
-             paginatedTweets.map((tweet) => renderItemCard(
-               tweet, 
-               'tweet', 
-               [
-                 { 
-                   label: <Trash2 className="w-4 h-4 text-red-500" />, 
-                   onClick: () => deleteTweet(tweet.id),
-                   className: 'text-red-600 hover:bg-red-50'
-                 }
-               ]
-             ))
-           ) : (
-             renderEmptyState("tweets", "Create Your First Tweet", () => navigate("/create-tweet"))
-           )}
-           {tweets.length > 5 && (
-             <Pagination 
-               currentPage={tweetsPage}
-               totalPages={tweetsTotalPages}
-               onPageChange={setTweetsPage}
-             />
-           )}
-         </CardContent>
-       </TabsContent>
+        return renderItemCard(
+          tweetWithImage, 
+          'tweet', 
+          [
+            { 
+              label: <Trash2 className="w-4 h-4 text-red-500" />, 
+              onClick: () => deleteTweet(tweet.id),
+              className: 'text-red-600 hover:bg-red-50'
+            }
+          ],
+        );
+      })
+    ) : (
+      renderEmptyState("tweets", "Create Your First Tweet", () => navigate("/create-tweet"))
+    )}
+    {tweets.length > 5 && (
+      <Pagination 
+        currentPage={tweetsPage}
+        totalPages={tweetsTotalPages}
+        onPageChange={setTweetsPage}
+      />
+    )}
+  </CardContent>
+</TabsContent>
+
 
         {/* Watch History Tab */}
         <TabsContent 

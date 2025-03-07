@@ -30,7 +30,6 @@ const PlaylistCreationPage = () => {
       try {
         
         const dashboardVideosResponse = await api.get(`/api/v1/videos/user/id/${userId}`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
         });
         if (dashboardVideosResponse.data?.videos) {
           setAvailableVideos(dashboardVideosResponse.data?.videos);

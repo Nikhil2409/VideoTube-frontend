@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 
@@ -13,8 +13,11 @@ const PlaylistView = () => {
   const userId = user?.id;
   const accessToken = user?.accessToken;
   const { playlistId } = useParams();
-  const navigate = useNavigate();
+  let { canEdit } = useParams();
+  canEdit = canEdit === "true";
 
+  const navigate = useNavigate();
+  
   const [playlist, setPlaylist] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [editedName, setEditedName] = useState('');
@@ -25,14 +28,12 @@ const PlaylistView = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
-
   // Extract video fetching logic into a separate function
   const fetchAvailableVideos = async () => {
     if (!userId) return; 
     
     try {
       const dashboardVideosResponse = await api.get(`/api/v1/videos/user/id/${userId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (dashboardVideosResponse.data?.data?.videos) {
         setAvailableVideos(dashboardVideosResponse.data.data.videos);
@@ -54,7 +55,6 @@ const PlaylistView = () => {
         setLoading(true);
 
         const response = await api.get(`/api/v1/playlist/${playlistId}`, {
-            headers: { Authorization: `Bearer ${accessToken}` },
           });
         
         // Update state with response data
@@ -82,20 +82,10 @@ const PlaylistView = () => {
   const getAvailableVideosNotInPlaylist = () => {
     if (!playlist || !playlist.videos) return availableVideos;
     
-// Filter out videos that are already in the playlist
-return availableVideos.filter(video => {
-  console.log('Checking video:', video.id, video.title || 'Unknown title');
-  
-  const isInPlaylist = playlist.videos.some(playlistVideo => {
-    console.log('  Comparing with playlist video:', playlistVideo.id, playlistVideo.title || 'Unknown title');
-    const matches = playlistVideo.id === video.id;
-    console.log('  Match?', matches);
-    return matches;
-  });
-  
-  console.log('Video', video.id, 'is', isInPlaylist ? 'already in playlist' : 'not in playlist');
-  return !isInPlaylist;
-});
+    // Filter out videos that are already in the playlist
+    return availableVideos.filter(video => {
+      return !playlist.videos.some(playlistVideo => playlistVideo.id === video.id);
+    });
   };
 
   const handleSavePlaylist = async () => {
@@ -112,12 +102,10 @@ return availableVideos.filter(video => {
       
       // Send update to API using PATCH
       await api.patch(`/api/v1/playlist/${playlistId}`, updatedPlaylistData, {
-        headers: { Authorization: `Bearer ${accessToken}` }
       });
       
       // Fetch fresh data from API to ensure consistency
       const response = await api.get(`/api/v1/playlist/${playlistId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
       });
       
       const updatedPlaylist = response.data.data;
@@ -139,7 +127,6 @@ return availableVideos.filter(video => {
     try {
       // Send delete request to API
       await api.delete(`/api/v1/playlist/${playlistId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
       });
     
       // Navigate back to playlists page
@@ -147,6 +134,27 @@ return availableVideos.filter(video => {
     } catch (error) {
       console.error('Error deleting playlist:', error);
       setError('Failed to delete playlist. Please try again later.');
+    }
+  };
+
+  const handleTogglePrivacy = async () => {
+    try {
+      const newIsPublic = !playlist.isPublic;
+      
+      // Send update to API
+      await api.patch(`/api/v1/playlist/${playlistId}`, { isPublic: newIsPublic }, {
+      });
+      
+      // Fetch fresh data from API to ensure consistency
+      const response = await api.get(`/api/v1/playlist/${playlistId}`, {
+      });
+      
+      const updatedPlaylist = response.data.data;
+      setPlaylist(updatedPlaylist);
+      
+    } catch (error) {
+      console.error('Error toggling playlist privacy:', error);
+      setError('Failed to update playlist privacy. Please try again later.');
     }
   };
 
@@ -159,12 +167,10 @@ return availableVideos.filter(video => {
     try {
       // Send request to API using the correct route
       await api.patch(`/api/v1/playlist/add/${video.id}/${playlistId}`, {}, {
-        headers: { Authorization: `Bearer ${accessToken}` }
       });
       
       // Fetch fresh data after modification
       const response = await api.get(`/api/v1/playlist/${playlistId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
       });
       
       const updatedPlaylist = response.data.data;
@@ -179,16 +185,18 @@ return availableVideos.filter(video => {
   };
 
   const handleRemoveVideo = async (videoId) => {
+    if (!canEdit) {
+      // Don't allow removal if not in edit mode
+      return;
+    }
+    
     try {
       // Send request to API using the correct route
       await api.patch(`/api/v1/playlist/remove/${videoId}/${playlistId}`, {}, {
-        headers: { Authorization: `Bearer ${accessToken}` }
       });
-      
       
       // Fetch fresh data after modification
       const response = await api.get(`/api/v1/playlist/${playlistId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
       });
       
       const updatedPlaylist = response.data.data;
@@ -202,17 +210,21 @@ return availableVideos.filter(video => {
       setError('Failed to remove video from playlist. Please try again later.');
     }
   };
+  
   const handleOpenAddVideoDialog = () => {
     fetchVideosNotInPlaylist(); 
     setIsAddVideoDialogOpen(true);
   };
 
-  // For drag and drop functionality - we'll leave this for now as reordering is not implemented in the backend
+  // For drag and drop functionality
   const handleDragStart = (e, index) => {
+    if (!canEdit) return; // Only allow drag if in edit mode
     e.dataTransfer.setData('videoIndex', index.toString());
   };
 
   const handleDrop = async (e, dropIndex) => {
+    if (!canEdit) return; // Only allow drop if in edit mode
+    
     const dragIndex = parseInt(e.dataTransfer.getData('videoIndex'));
     if (dragIndex === dropIndex) return;
 
@@ -293,34 +305,32 @@ return availableVideos.filter(video => {
   }
 
   const videos = playlist.videos || [];
-  console.log(playlist);
 
-const fetchVideosNotInPlaylist = async () => {
-  if (!userId || !playlistId) return;
-  
-  try {
-    setLoading(true);
+  const fetchVideosNotInPlaylist = async () => {
+    if (!userId || !playlistId) return;
     
-    // Make API call to get videos not in the playlist
-    const response = await api.get(`/api/v1/videos/user/${userId}/not-in-playlist/${playlistId}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    
-    if (response.data?.data?.videos) {
-      setAvailableVideos(response.data.data.videos);
-    } else {
+    try {
+      setLoading(true);
+      
+      // Make API call to get videos not in the playlist
+      const response = await api.get(`/api/v1/videos/user/${userId}/not-in-playlist/${playlistId}`, {
+      });
+      
+      if (response.data?.data?.videos) {
+        setAvailableVideos(response.data.data.videos);
+      } else {
+        setAvailableVideos([]);
+      }
+      
+      setError('');
+    } catch (err) {
+      console.error("Error fetching available videos:", err);
+      setError("Failed to load videos. Please try again later.");
       setAvailableVideos([]);
+    } finally {
+      setLoading(false);
     }
-    
-    setError('');
-  } catch (err) {
-    console.error("Error fetching available videos:", err);
-    setError("Failed to load videos. Please try again later.");
-    setAvailableVideos([]);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50 py-8 px-4 sm:px-6">
@@ -330,12 +340,12 @@ const fetchVideosNotInPlaylist = async () => {
           <div className="p-4 border-b">
             <button
               className="flex items-center text-indigo-600 hover:text-indigo-800 transition-colors"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate(-1)}
             >
               <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path>
               </svg>
-              Back to Playlists
+              Back 
             </button>
           </div>
           
@@ -343,7 +353,7 @@ const fetchVideosNotInPlaylist = async () => {
           <div>
             {/* Header */}
             <div className="p-6 border-b bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-              {editMode ? (
+              {editMode && canEdit ? (
                 <div>
                   {error && (
                     <div className="bg-red-800 bg-opacity-50 border border-red-300 text-white px-4 py-3 rounded mb-4">
@@ -403,29 +413,44 @@ const fetchVideosNotInPlaylist = async () => {
                       <p className="text-indigo-100">{playlist.description}</p>
                     )}
                     <p className="text-sm text-indigo-200 mt-2">
-                      {videos.length} videos
+                      {videos.length} videos • {playlist.isPublic ? 'Public' : 'Private'} playlist
                     </p>
                   </div>
-                  <div className="flex gap-3">
-                    <button
-                      className="p-2 hover:bg-white hover:bg-opacity-10 rounded-full"
-                      onClick={() => setEditMode(true)}
-                      title="Edit Playlist"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
-                      </svg>
-                    </button>
-                    <button
-                      className="p-2 hover:bg-white hover:bg-opacity-10 rounded-full"
-                      onClick={handleDeletePlaylist}
-                      title="Delete Playlist"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                      </svg>
-                    </button>
-                  </div>
+                  {canEdit && ( // Only show edit buttons if in edit mode
+                    <div className="flex gap-3">
+                      <button
+                        className="p-2 hover:bg-white hover:bg-opacity-10 rounded-full"
+                        onClick={() => setEditMode(true)}
+                        title="Edit Playlist"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                        </svg>
+                      </button>
+                      <button
+                        className="p-2 hover:bg-white hover:bg-opacity-10 rounded-full"
+                        onClick={handleTogglePrivacy}
+                        title={playlist.isPublic ? "Make Private" : "Make Public"}
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          {playlist.isPublic ? (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                          ) : (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path>
+                          )}
+                        </svg>
+                      </button>
+                      <button
+                        className="p-2 hover:bg-white hover:bg-opacity-10 rounded-full"
+                        onClick={handleDeletePlaylist}
+                        title="Delete Playlist"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -434,15 +459,17 @@ const fetchVideosNotInPlaylist = async () => {
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-bold text-gray-900">Videos in this playlist</h3>
-                <button
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg"
-                  onClick={handleOpenAddVideoDialog}
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                  </svg>
-                  Add Video
-                </button>
+                {canEdit && ( // Only show add video button if in edit mode
+                  <button
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg"
+                    onClick={handleOpenAddVideoDialog}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    Add Video
+                  </button>
+                )}
               </div>
               
               {videos.length === 0 ? (
@@ -451,7 +478,9 @@ const fetchVideosNotInPlaylist = async () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                   </svg>
                   <p className="text-lg font-medium">No videos added yet</p>
-                  <p className="mt-1">Click 'Add Video' to start building your playlist</p>
+                  {canEdit && (
+                    <p className="mt-1">Click 'Add Video' to start building your playlist</p>
+                  )}
                 </div>
               ) : (
                 <div className="divide-y divide-gray-200">
@@ -459,16 +488,18 @@ const fetchVideosNotInPlaylist = async () => {
                     <div 
                       key={video.id}
                       className="py-4 flex items-center"
-                      draggable
+                      draggable={canEdit} // Only draggable if in edit mode
                       onDragStart={(e) => handleDragStart(e, index)}
                       onDrop={(e) => handleDrop(e, index)}
                       onDragOver={handleDragOver}
                     >
-                      <div className="flex items-center mr-4 text-gray-400 cursor-grab">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8h16M4 16h16"></path>
-                        </svg>
-                      </div>
+                      {canEdit && ( // Only show drag handle if in edit mode
+                        <div className="flex items-center mr-4 text-gray-400 cursor-grab">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8h16M4 16h16"></path>
+                          </svg>
+                        </div>
+                      )}
                       <div className="mr-4 w-32 flex-shrink-0">
                         <img src={video.thumbnail} alt="" className="w-full rounded-md" />
                       </div>
@@ -476,15 +507,17 @@ const fetchVideosNotInPlaylist = async () => {
                         <h4 className="font-medium text-gray-900">{video.title}</h4>
                         <p className="text-sm text-gray-600">{video.owner || "Unknown Channel"}</p>
                       </div>
-                      <button 
-                        className="ml-4 p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-gray-100"
-                        onClick={() => handleRemoveVideo(video.id)}
-                        title="Remove from playlist"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                      </button>
+                      {canEdit && ( // Only show remove button if in edit mode
+                        <button 
+                          className="ml-4 p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-gray-100"
+                          onClick={() => handleRemoveVideo(video.id)}
+                          title="Remove from playlist"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                          </svg>
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -531,40 +564,40 @@ const fetchVideosNotInPlaylist = async () => {
             </div>
             
             <div className="max-h-96 overflow-y-auto p-6">
-            {availableVideos.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-            <p className="text-lg font-medium">All available videos are already in your playlist</p>
-            <p className="mt-1">Upload more videos or create a new playlist</p>
-            </div>
-                ) : availableVideos.length === 0 ? (
+              {availableVideos.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  <p className="text-lg font-medium">No videos found</p>
-                  <p className="mt-1">Try a different search term</p>
+                  <p className="text-lg font-medium">All available videos are already in your playlist</p>
+                  <p className="mt-1">Upload more videos or create a new playlist</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {availableVideos.map(video => (
-                    <div 
-                      key={video.id} 
-                      className="flex border rounded-lg overflow-hidden hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer"
-                      onClick={() => handleAddVideoToPlaylist(video)}
-                    >
-                      <div className="w-1/3 flex-shrink-0">
-                        <img src={video.thumbnail} alt="" className="w-full h-full object-cover" />
-                      </div>
-                      <div className="w-2/3 p-3 flex flex-col">
-                        <h4 className="font-medium text-gray-900 mb-1 line-clamp-2">{video.title}</h4>
-                        <p className="text-sm text-gray-600 mb-2">{video.owner || "Unknown Channel"}</p>
-                        <div className="mt-auto">
-                          <button
-                            className="w-full py-1 px-2 rounded text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white"
-                          >
-                            Add to Playlist
-                          </button>
+                  {availableVideos
+                    .filter(video => 
+                      video.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      (video.owner && video.owner.toLowerCase().includes(searchTerm.toLowerCase()))
+                    )
+                    .map(video => (
+                      <div 
+                        key={video.id} 
+                        className="flex border rounded-lg overflow-hidden hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer"
+                        onClick={() => handleAddVideoToPlaylist(video)}
+                      >
+                        <div className="w-1/3 flex-shrink-0">
+                          <img src={video.thumbnail} alt="" className="w-full h-full object-cover" />
+                        </div>
+                        <div className="w-2/3 p-3 flex flex-col">
+                          <h4 className="font-medium text-gray-900 mb-1 line-clamp-2">{video.title}</h4>
+                          <p className="text-sm text-gray-600 mb-2">{video.owner || "Unknown Channel"}</p>
+                          <div className="mt-auto">
+                            <button
+                              className="w-full py-1 px-2 rounded text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white"
+                            >
+                              Add to Playlist
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               )}
             </div>
