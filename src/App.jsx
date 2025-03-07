@@ -1,18 +1,17 @@
 import { Routes, Route } from "react-router-dom";
 import AuthPage from "./components/Authpage.jsx";
-import RegisterUser from "./components/RegisterUser";
+import RegisterUser from "./components/RegisterUser.jsx";
 import Dashboard from "./components/Dashboard.jsx";
 import Profile from "./components/Profile/Profile.jsx";
 import EditProfile from "./components/Profile/EditProfile.jsx";
 import Channel from "./components/Channel/Channel.jsx"
 import VideoUpload from "./components/video/VideoUpload.jsx";
 import VideoPlayer from "./components/video/VideoPlayer.jsx";
-//import VideoEdit from "./components/VideoEdit";
 import Explore from "./components/Explore.jsx";
 import MyVideosPage from "./components/video/MyVideos.jsx";
 import LikedVideosPage from "./components/video/LikedVideos.jsx";
-//import PlaylistCreate from "./components/PlaylistCreate";
-//import PlaylistView from "./components/PlaylistView";
+import PlaylistCreate from "./components/PlaylistCreate";
+import PlaylistView from "./components/PlaylistView";
 //import PlaylistEdit from "./components/PlaylistEdit";
 //import ChannelView from "./components/ChannelView";
 //import TweetCreate from "./components/TweetCreate";
@@ -41,6 +40,8 @@ function App() {
       <Route path="/my-videos" element={< MyVideosPage/>} />
 
       <Route path="/likedVideos" element={<LikedVideosPage />} />
+      <Route path="/create-playlist" element={<PlaylistCreate />} />
+      <Route path="/playlist/:playlistId" element={<PlaylistView />} />
     </Routes>
   );
 }
@@ -55,7 +56,7 @@ function App() {
           
         
           <Route path="/playlist/create" element={<PlaylistCreate />} />
-          <Route path="/playlist/:playlistId" element={<PlaylistView />} />
+
           <Route path="/playlist/edit/:playlistId" element={<PlaylistEdit />} />
           
           <Route path="/tweets/create" element={<TweetCreate />} />

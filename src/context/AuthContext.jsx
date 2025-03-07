@@ -26,26 +26,13 @@ export const AuthProvider = ({ children }) => {
           
           // Explicitly log the payload to see its structure
           console.log("JWT Payload:", payload);
-
-          // Attempt to extract watchHistoryIds with multiple fallback methods
-          const watchHistoryIds = 
-            payload.watchHistoryIds || 
-            payload.watchHistory || 
-            payload.watchHistoryId || 
-            payload.watchHistoryids || 
-            payload.watchhistoryIds || 
-            [];
-
+  
           setUser({
             accessToken: token,
             id: payload._id || payload.id || payload.sub, 
             username: payload.username,
             email: payload.email,
-            watchHistoryIds: watchHistoryIds
           });
-
-          // Additional debug logging
-          console.log("Extracted Watch History IDs:", watchHistoryIds);
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
@@ -103,16 +90,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Update watch history method
-  const updateWatchHistory = (newWatchHistoryIds) => {
-    if (user) {
-      setUser(prevUser => ({
-        ...prevUser,
-        watchHistoryIds: newWatchHistoryIds
-      }));
-    }
-  };
-
   // Logout function - remove token and clear user state
   const logout = () => {
     if (user) {
@@ -120,6 +97,8 @@ export const AuthProvider = ({ children }) => {
     }
     Cookies.remove("accessToken");
     setUser(null);
+    localStorage.clear();
+    sessionStorage.clear();
   };
 
   // Check if user is authenticated
@@ -133,7 +112,6 @@ export const AuthProvider = ({ children }) => {
     logout,
     isAuthenticated,
     loading,
-    updateWatchHistory // Add the new method to update watch history
   };
 
   return (

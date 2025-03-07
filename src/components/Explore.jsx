@@ -78,7 +78,7 @@ function VideoList() {
     if (!isValidObjectId) return null;
     
     try {
-      const response = await api.get(`/api/v1/users/${ownerId}`);
+      const response = await api.get(`/api/v1/users/getUser/${ownerId}`);
       const userData = response.data.data;
       
       setUserCache(prev => ({

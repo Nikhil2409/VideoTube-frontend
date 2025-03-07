@@ -40,10 +40,10 @@ import { toast } from "./ui/use-toast"
 import axios from 'axios'
 import { cacheUtils } from "./utils/cacheUtils"
 
-function Navbar({ user: propsUser, logout, onDataDelete, onWatchHistoryCleared }) {
+function Navbar({onDataDelete}) {
   const [searchQuery, setSearchQuery] = useState("")
   const [deleteConfirmation, setDeleteConfirmation] = useState(null)
-  const [user, setUser] = useState(propsUser);
+  const {user} = useAuth(); 
   const navigate = useNavigate()
   console.log(user);
   const handleSearch = useCallback((e) => {
@@ -66,49 +66,32 @@ function Navbar({ user: propsUser, logout, onDataDelete, onWatchHistoryCleared }
 
   const handleDeleteSpecificData = async (dataType) => {
     try {
-      if(dataType === 'watch history'){
-        await api.post('/api/v1/users/deleteWatchHistory', {
-          userId: user?.id,
-        });
-
-        setUser(prevUser => ({
-          ...prevUser,
-          watchHistoryIds: [] // Clear watch history IDs
-        }));
-
-        // Call the callback to trigger watch history clearing in Dashboard
-        if (onWatchHistoryCleared) {
-          onWatchHistoryCleared();
-        }
-      } else {
         await api.post('/api/v1/users/delete-specific-data', {
           userId: user?.id,
           dataType: dataType
         });
-      }
-      
-      toast({
-        title: "Data Deleted",
-        description: `${dataType} has been successfully deleted.`,
-        variant: "destructive"
-      });
-      
-      // Clear local cache
-      cacheUtils.clearUserCache(user.id);
+        toast({
+          title: "Data Deleted",
+          description: `${dataType} has been successfully deleted.`,
+          variant: "destructive"
+        });
+        
+        // Clear local cache
+        cacheUtils.clearUserCache(user.id);
       
       // Trigger dashboard refresh if callback is provided
       if (onDataDelete) {
         onDataDelete();
       }
-      
-      setDeleteConfirmation(null);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: `Failed to delete ${dataType}.`,
-        variant: "destructive"
-      });
-    }
+        
+        setDeleteConfirmation(null);
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: `Failed to delete ${dataType}.`,
+          variant: "destructive"
+        });
+      }
   };
 
   const dataDeleteOptions = [
@@ -128,7 +111,7 @@ function Navbar({ user: propsUser, logout, onDataDelete, onWatchHistoryCleared }
       icon: Pen 
     },
     {
-      type: 'watch history',
+      type: 'watchHistory',
       label: 'WatchHistory',
       icon: Clock
     }
@@ -196,7 +179,7 @@ function Navbar({ user: propsUser, logout, onDataDelete, onWatchHistoryCleared }
         <Button 
           variant="outline" 
           size="icon" 
-          onClick={() => navigate("/addPlaylist")}
+          onClick={() => navigate("/create-playlist")}
           className="hover:bg-gray-50"
         >
           <Play className="h-5 w-5 text-blue-600" />

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import Cookies from "js-cookie";
 import { useAuth } from "../../context/AuthContext.jsx";
@@ -16,6 +16,7 @@ const Profile = () => {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [subscribers, setSubscribers] = useState([]);
   const [videos, setVideos] = useState([]);
+  const [watchHistory, setWatchHistory] = useState([]);
   
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -27,12 +28,10 @@ const Profile = () => {
     bio: "",
     avatar: "",
     coverImage: "",
-    watchHistory: [],
     createdAt: "",
-    watchHistoryIds:[],
     stats: {
-      totalVideos:"",
-      totalSubscribers:"",
+      totalVideos: "",
+      totalSubscribers: "",
       totalLikes: "",
       totalViews: "",
     },
@@ -46,30 +45,57 @@ const Profile = () => {
     withCredentials: true,
   });
 
-  // Fetch user data first
+  // Unified data fetching in a single useEffect
   useEffect(() => {
-    const fetchUserData = async () => {
+    const fetchAllUserData = async () => {
       try {
         setLoading(true);
-
         const token = Cookies.get("accessToken");
-        const response = await api.get("/api/v1/users/current-user", {
+        
+        // Fetch user profile data
+        const userResponse = await api.get("/api/v1/users/current-user", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-
-        const stats = await api.get(`/api/v1/dashboard/stats/${response.data.data._id}`, {
+        
+        const userData = userResponse.data.data;
+        
+        // Fetch user stats
+        const statsResponse = await api.get(`/api/v1/dashboard/stats/${userData._id}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-
-        setUser((prevUser) => ({
-          ...prevUser,
-          ...response.data.data,
-          stats: stats.data.data,
-        }));
+        
+        // Update user state with profile and stats data
+        setUser({
+          ...userData,
+          stats: statsResponse.data.data,
+        });
+        
+        // Fetch watch history
+        const historyResponse = await api.get("/api/v1/users/history", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        setWatchHistory(historyResponse.data.data || []);
+        
+        // Now that we have the user ID and username, fetch subscribers and videos
+        if (userData.id && userData.username) {
+          // Fetch subscribers
+          const subscribersResponse = await api.get(`/api/v1/subscriptions/u/${userData.id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setSubscribers(subscribersResponse.data?.data?.subscribers || []);
+          
+          // Fetch videos
+          const videoResponse = await api.get(`/api/v1/videos/user/${userData.username}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setVideos(videoResponse.data?.videos || []);
+        }
       } catch (err) {
         console.error("Error fetching user data:", err);
         setError("Failed to load profile data. Please try again later.");
@@ -82,102 +108,56 @@ const Profile = () => {
       }
     };
 
-    fetchUserData();
+    fetchAllUserData();
   }, [navigate]);
 
-  // Fetch subscribers and videos after user data is loaded
-  useEffect(() => {
-    const fetchSubscribersAndVideos = async () => {
-      if (!user.id || !user.username) return;
-      
-      const token = Cookies.get("accessToken");
-      
-      try {
-        // Fetch subscribers
-        const subscribersResponse = await api.get(`/api/v1/subscriptions/u/${user.id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setSubscribers(subscribersResponse.data?.data?.subscribers || []);
-        
-        // Fetch videos
-        const videoResponse = await api.get(`/api/v1/videos/user/${user.username}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setVideos(videoResponse.data?.videos || []);
-      } catch (err) {
-        console.error("Error fetching profile data:", err);
-      }
-    };
+  // Function to determine text size class based on content length
+  const getTextSizeClass = (text, type) => {
+    if (!text) return "text-lg";
 
-    if (!loading && user.id) {
-      fetchSubscribersAndVideos();
+    const length = text.length;
+
+    if (type === "fullName") {
+      if (length > 25) return "text-xs";
+      if (length > 20) return "text-sm";
+      if (length > 15) return "text-base";
+      return "text-xl";
     }
-  }, [user.id, user.username, loading]);
 
-  // Function to generate dummy watch history
-  const getDummyWatchHistory = () => {
-    return [
-      {
-        id: "1",
-        title: "Introduction to React Hooks",
-        thumbnail: "https://via.placeholder.com/150x100?text=React+Hooks",
-        watchedAt: new Date(2025, 2, 1, 14, 30).toISOString(),
-      },
-      {
-        id: "2",
-        title: "Building a REST API with Node.js",
-        thumbnail: "https://via.placeholder.com/150x100?text=Node.js+API",
-        watchedAt: new Date(2025, 2, 1, 16, 45).toISOString(),
-      },
-      {
-        id: "3",
-        title: "CSS Grid Layout Tutorial",
-        thumbnail: "https://via.placeholder.com/150x100?text=CSS+Grid",
-        watchedAt: new Date(2025, 2, 2, 9, 15).toISOString(),
-      },
-      {
-        id: "4",
-        title: "JavaScript ES6+ Features",
-        thumbnail: "https://via.placeholder.com/150x100?text=ES6+Features",
-        watchedAt: new Date(2025, 2, 2, 11, 0).toISOString(),
-      },
-    ];
+    if (type === "username" || type === "email") {
+      if (length > 25) return "text-xs";
+      if (length > 20) return "text-sm";
+      if (length > 15) return "text-base";
+      return "text-lg";
+    }
+
+    if (type === "bio") {
+      if (length > 200) return "text-xs";
+      if (length > 150) return "text-sm";
+      if (length > 100) return "text-base";
+      return "text-lg";
+    }
+
+    return "text-base";
   };
   
-  const getVideos = async (watchHistory) => {
+  const handleLogout = async () => {
     try {
       const token = Cookies.get("accessToken");
-
-      if (!token) {
-        console.error('No authentication token found');
-        setVideos([]);
-        return [];
-      }
-
-      const videoPromises = watchHistory.map(async (videoId) => {
-        try {
-          const response = await api.get(`/api/v1/videos/${videoId}`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-            withCredentials: true,
-          });
-          return response.data.data;
-        } catch (error) {
-          console.error(`Error fetching video ${videoId}:`, error);
-          return null;
+      await api.post(
+        "/api/v1/users/logout",
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          withCredentials: true,
         }
-      });
-
-      const videosArray = await Promise.all(videoPromises);
-      const validVideos = videosArray.filter(video => video !== null);
-      setVideos(validVideos);
-
-      return validVideos;
+      );
+      logout();
+      navigate("/login");
     } catch (error) {
-      console.error('Error in getVideos:', error);
-      setVideos([]);
-      return []; 
+      console.error("Error logging out:", error);
     }
   };
 
@@ -223,64 +203,6 @@ const Profile = () => {
       </div>
     );
   }
-
-  let watchHistory = [];
-  if(user.watchHistoryIds?.length > 0){
-    getVideos(user.watchHistoryIds);
-    watchHistory = videos;
-  }else{
-    watchHistory = getDummyWatchHistory();
-  }
-
-  const handleLogout = async () => {
-    try {
-      const token = Cookies.get("accessToken");
-      await api.post(
-        "/api/v1/users/logout",
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          withCredentials: true,
-        }
-      );
-      logout();
-      navigate("/login");
-    } catch (error) {
-      console.error("Error logging out:", error);
-    }
-  };
-
-  // Function to determine text size class based on content length
-  const getTextSizeClass = (text, type) => {
-    if (!text) return "text-lg";
-
-    const length = text.length;
-
-    if (type === "fullName") {
-      if (length > 25) return "text-xs";
-      if (length > 20) return "text-sm";
-      if (length > 15) return "text-base";
-      return "text-xl";
-    }
-
-    if (type === "username" || type === "email") {
-      if (length > 25) return "text-xs";
-      if (length > 20) return "text-sm";
-      if (length > 15) return "text-base";
-      return "text-lg";
-    }
-
-    if (type === "bio") {
-      if (length > 200) return "text-xs";
-      if (length > 150) return "text-sm";
-      if (length > 100) return "text-base";
-      return "text-lg";
-    }
-
-    return "text-base";
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-indigo-100">
@@ -395,23 +317,24 @@ const Profile = () => {
                     <div
                       key={video.id}
                       className="flex gap-3 items-center bg-gradient-to-r from-gray-50 to-blue-50 p-3 rounded-lg shadow-sm hover:shadow-md transition-shadow"
+                      onClick={() => navigate(`/video/${video.videoId}`)}
+                      style={{ cursor: 'pointer' }}
                     >
-                      <div
-                        className="w-24 h-16 rounded-md bg-cover bg-center flex-shrink-0 shadow-sm"
-                        style={{
-                          backgroundImage: `url(${
-                            video.thumbnail ||
-                            "https://via.placeholder.com/150x100"
-                          })`,
-                        }}
-                      ></div>
+                      <div className="w-24 h-16 rounded-md flex-shrink-0 shadow-sm overflow-hidden">
+                        <img 
+                          src={video.video.thumbnail || "https://via.placeholder.com/150x100"}
+                          alt={video.title}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      </div>
                       <div className="overflow-hidden">
                         <h3 className="font-medium text-sm sm:text-base truncate text-gray-800">
-                        {video.title}
+                          {video.title}
                         </h3>
                         <p className="text-xs sm:text-sm text-gray-500 truncate">
-                          {new Date(video.createdAt).toLocaleDateString()} at{" "}
-                          {new Date(video.createdAt).toLocaleTimeString([], {
+                          {new Date(video.watchedAt || video.createdAt).toLocaleDateString()} at{" "}
+                          {new Date(video.watchedAt || video.createdAt).toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}

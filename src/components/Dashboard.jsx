@@ -167,10 +167,7 @@ function Dashboard() {
     if (!forceRefresh && !isInitialLoad) {
       const cachedData = cacheUtils.get(cacheKey);
       if (cachedData) {
-        setDashboardData({
-          ...cachedData,
-          watchHistory: []
-        });
+        setDashboardData(cachedData);
         return cachedData;
       }
     }
@@ -191,48 +188,51 @@ function Dashboard() {
         signal,
       }).catch(() => ({ data: { data: { likes: [] } } }));
       
-      // Fetch dashboard videos using the new endpoint
-      
-   const dashboardVideosResponse = await api.get(`/api/v1/videos/user/id/${userId}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-
-    // Crucial modification: Check if watch history has been explicitly cleared
-    let validVideos = [];
-    if (user.watchHistoryCleared) {
-      // If watch history is explicitly cleared, keep it empty
-      validVideos = [];
-    } else if (user.watchHistoryIds && user.watchHistoryIds.length > 0) {
-      const videoPromises = user.watchHistoryIds.map(async (videoId) => {
-        try {
-          const response = await api.get(`/api/v1/videos/${videoId}`, {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          });
-          return response.data.data;
-        } catch (error) {
-          console.error(`Failed to fetch video ${videoId}:`, error);
-          return null;
-        }
+      // Fetch dashboard videos
+      const dashboardVideosResponse = await api.get(`/api/v1/videos/user/id/${userId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       
-      // Wait for all API calls to complete
-      const videosArray = await Promise.all(videoPromises);
+      // Fetch watch history using the new endpoint
+      const watchHistoryResponse = await api.get(`/api/v1/users/history`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal,
+      }).catch(() => ({ data: { data: [] } }));
+      
+      const comments = await api.get(`/api/v1/comments/all/${userId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal,
+      })
+      
+      const playlists = await api.get(`/api/v1/playlist/user/${userId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal,
+      })
 
-      // Filter out null values (failed requests)
-      validVideos = videosArray.filter(video => video !== null);
-    }
-
+      console.log(playlists);
+      // Transform watch history data to match the expected format in your UI
+      const formattedWatchHistory = watchHistoryResponse.data?.data?.map(item => ({
+        id: item.video?.id,
+        title: item.video?.title,
+        thumbnail: item.video?.thumbnail,
+        duration: item.video?.duration,
+        views: item.video?.views,
+        createdAt: item.watchedAt,
+        user: item.video?.user,
+        lastPosition: item.lastPosition,
+        completionRate: item.completionRate
+      })) || [];
+      
+      console.log(playlists);
       // Update dashboard data
       setDashboardData(prevData => ({
         ...prevData,
         subscribers: subscribersResponse.data?.data?.subscribers || dummyData.subscribers,
         videos: dashboardVideosResponse.data?.videos,
         likedVideos: likesResponse.data.data || dummyData.likedVideos,
-        comments: [],
-        watchHistory: validVideos, // Set watch history to filtered valid videos
-        playlists: dummyData.playlists,
+        comments: comments.data.data.comments || [],
+        watchHistory: formattedWatchHistory,
+        playlists: playlists.data.data || [],
         tweets: dummyData.tweets,
       }));  
   
@@ -264,6 +264,7 @@ function Dashboard() {
       subscribers: dashboardData.subscribers || [],
       tweets: dashboardData.tweets || [],
       comments: dashboardData.comments || [],
+      watchHistory: dashboardData.watchHistory || []
     });
   
     return () => controller.abort();
@@ -274,7 +275,7 @@ function Dashboard() {
     cacheUtils.clearUserCache(user.id);
     
     // Force a full refresh of dashboard data
-    fetchDashboardData(true, true);
+    fetchDashboardData(true, false);
   };
 
   useEffect(() => {
@@ -293,6 +294,43 @@ function Dashboard() {
       setIsWatchHistoryCleared(false); // Reset the flag
     }
   }, [isWatchHistoryCleared]);
+
+  const handleDeleteComment = async (commentId) => {
+    if (!user) return;
+    
+    // Show confirmation dialog
+    if (!window.confirm("Are you sure you want to delete this comment?")) {
+      return;
+    }
+    
+    try {
+      const accessToken = user.accessToken;
+      
+      // Call API to delete the comment
+      const response = await api.delete(`/api/v1/comments/c/${commentId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      
+      if (response.data.success) {
+        // Remove the comment from the local state
+        const updatedComments = comments.filter(comment => comment.id !== commentId);
+        
+        // Fixed syntax for updating the dashboardData state
+        setDashboardData(prev => ({
+          ...prev,
+          comments: updatedComments
+        }));
+        
+        fetchDashboardData(true, true);
+        // Show success message
+        toast.success("Comment deleted successfully");
+      }
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      // Show error message
+      toast.error("Failed to delete comment");
+    }
+  };
 
   const {
     currentPage: videosPage,
@@ -367,7 +405,6 @@ function Dashboard() {
           "Content-Type": "application/json",
         },
       });
-
       // Update the videos state using previous state pattern
       setDashboardData(prev => ({
         ...prev,
@@ -381,7 +418,7 @@ function Dashboard() {
           return video;
         })
       }));
-      
+      refreshDashboardData();
       toast.success(response.data?.message || "Video status updated successfully");
     } catch (error) {
       console.error("Error toggling video publish status:", error);
@@ -406,12 +443,7 @@ function Dashboard() {
         },
       });
 
-      // Update videos state by removing the deleted video
-      setDashboardData(prev => ({
-        ...prev,
-        videos: prev.videos.filter((video) => video.id !== videoId)
-      }));
-      
+      refreshDashboardData();
       toast.success("Video deleted successfully");
     } catch (error) {
       console.error("Error deleting video:", error);
@@ -486,104 +518,106 @@ function Dashboard() {
   );
 
   // Consistent video/item card rendering
-  const renderItemCard = (item, type, actions = []) => (
-    <div
-      className="flex items-center bg-white/70 backdrop-blur-lg rounded-xl p-4 shadow-md hover:shadow-xl transition-all transform hover:-translate-y-1 border border-white/30 space-x-4"
-      onClick={() => type === 'video' ? navigate(`/video/${item.id}`) : null}
-    >
-      {/* Thumbnail */}
-      <div className="h-20 w-36 rounded-lg overflow-hidden flex-shrink-0 relative">
-        {item.thumbnail ? (
-          <img
-            src={item.thumbnail}
-            alt={item.title}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-            <Play className="text-gray-500" />
-          </div>
-        )}
-        {type === 'video' && (
-          <div className="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-2 rounded">
-            {formatDuration(item.duration) || "00:00"}
-          </div>
-        )}
-      </div>
-
-      {/* Content */}
-      <div className="flex-1">
-        <h3 className="font-semibold text-gray-800 mb-1 hover:text-blue-600 transition-colors">
-          {item.title || item.name || item.content}
-        </h3>
-        
-        {/* Metadata based on type */}
-        <div className="text-xs text-gray-500 space-y-1">
-          {type === 'video' && (
-            <>
-              <div>{item.views || 0} views</div>
-              <div>{new Date(item.createdAt).toLocaleDateString()}</div>
-              {item.isPublished !== undefined && (
-                <span 
-                  className={`inline-block px-2 py-1 rounded ${
-                    item.isPublished 
-                    ? "bg-green-100 text-green-800" 
-                    : "bg-yellow-100 text-yellow-800"
-                  } text-xs`}
-                >
-                  {item.isPublished ? "Published" : "Private"}
-                </span>
-              )}
-            </>
-          )}
-          
-          {type === 'playlist' && (
-            <>
-              <div>Created: {new Date(item.createdAt).toLocaleDateString()}</div>
-              <div>{item.isPublic ? "Public" : "Private"}</div>
-            </>
-          )}
-          
-          {type === 'tweet' && (
-            <div>{new Date(item.createdAt).toLocaleString()}</div>
-          )}
+// In your renderItemCard function, modify it to handle playlist clicks
+const renderItemCard = (item, type, actions = []) => (
+  <div
+    className="flex items-center bg-white/70 backdrop-blur-lg rounded-xl p-4 shadow-md hover:shadow-xl transition-all transform hover:-translate-y-1 border border-white/30 space-x-4"
+    onClick={() => {
+      if (type === 'video') {
+        navigate(`/video/${item.id}`);
+      } else if (type === 'playlist') {
+        navigate(`/playlist/${item.id}`);
+      }
+    }}
+    style={{ cursor: (type === 'video' || type === 'playlist') ? 'pointer' : 'default' }}
+  >
+    {/* Thumbnail */}
+    <div className="h-20 w-36 rounded-lg overflow-hidden flex-shrink-0 relative">
+      {item.thumbnail ? (
+        <img
+          src={item.thumbnail}
+          alt={item.title || item.name}
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+          <Play className="text-gray-500" />
         </div>
-      </div>
-
-      {/* Actions */}
-      {actions.length > 0 && (
-        <div className="flex space-x-2">
-          {actions.map((action, index) => (
-            <Button
-              key={index}
-              variant="ghost"
-              size="sm"
-              className={`hover:bg-gray-100 ${action.className}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                action.onClick();
-              }}
-            >
-              {action.label}
-            </Button>
-          ))}
+      )}
+      {type === 'video' && (
+        <div className="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-2 rounded">
+          {formatDuration(item.duration) || "00:00"}
         </div>
       )}
     </div>
-  );
-  
-  const handleWatchHistoryCleared = () => {
-    setIsWatchHistoryCleared(true);
-  };
+
+    {/* Content */}
+    <div className="flex-1">
+      <h3 className="font-semibold text-gray-800 mb-1 hover:text-blue-600 transition-colors">
+        {item.title || item.name || item.content}
+      </h3>
+      
+      {/* Metadata based on type */}
+      <div className="text-xs text-gray-500 space-y-1">
+        {type === 'video' && (
+          <>
+            <div>{item.views || 0} views</div>
+            <div>{new Date(item.createdAt).toLocaleDateString()}</div>
+            {item.isPublished !== undefined && (
+              <span 
+                className={`inline-block px-2 py-1 rounded ${
+                  item.isPublished 
+                  ? "bg-green-100 text-green-800" 
+                  : "bg-yellow-100 text-yellow-800"
+                } text-xs`}
+              >
+                {item.isPublished ? "Published" : "Private"}
+              </span>
+            )}
+          </>
+        )}
+        
+        {type === 'playlist' && (
+          <>
+            <div>Created: {new Date(item.createdAt).toLocaleDateString()}</div>
+            <div>{item.isPublic ? "Public" : "Private"}</div>
+          </>
+        )}
+        
+        {type === 'tweet' && (
+          <div>{new Date(item.createdAt).toLocaleString()}</div>
+        )}
+      </div>
+    </div>
+
+    {/* Actions */}
+    {actions.length > 0 && (
+      <div className="flex space-x-2">
+        {actions.map((action, index) => (
+          <Button
+            key={index}
+            variant="ghost"
+            size="sm"
+            className={`hover:bg-gray-100 ${action.className}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              action.onClick();
+            }}
+          >
+            {action.label}
+          </Button>
+        ))}
+      </div>
+    )}
+  </div>
+);
 
   return (
     <div className="flex h-screen w-full bg-gradient-to-br from-gray-50 to-blue-50">
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-auto">
-       <Navbar 
-        user={user} 
+       <Navbar
         onDataDelete={refreshDashboardData}
-        onWatchHistoryCleared={handleWatchHistoryCleared} 
       />
         <div className="p-8 space-y-8">
           {/* Header with Gradient Background */}
@@ -715,52 +749,84 @@ function Dashboard() {
            </CardContent>
          </TabsContent>
 
-            {/* Comments Tab */}
-            <TabsContent 
-             value="comments" 
-             className="space-y-4 bg-white/60 backdrop-blur-lg rounded-2xl p-6 border border-white/30 shadow-xl"
-           >
-             <CardHeader>
-               <CardTitle className="text-xl text-gray-800">Your Comments</CardTitle>
-             </CardHeader>
-             <CardContent className="space-y-4">
-               {paginatedComments && paginatedComments.length > 0 ? (
-                 paginatedComments.map((comment) => (
-                   <div 
-                     key={comment.id} 
-                     className="bg-white/70 backdrop-blur-lg rounded-xl p-4 shadow-md border border-white/30 hover:shadow-xl transition-all"
-                   >
-                     <div className="flex items-start justify-between">
-                       <div>
-                         <h4 
-                           className="font-medium text-blue-600 cursor-pointer hover:text-blue-800" 
-                           onClick={() => navigate(`/video/${comment.videoId}`)}
-                         >
-                           {comment.videoTitle || "Video"}
-                         </h4>
-                         <p className="text-xs text-gray-500">
-                           {new Date(comment.createdAt).toLocaleString()}
-                         </p>
-                       </div>
-                     </div>
-                     <p className="mt-3 text-gray-700">{comment.content}</p>
-                   </div>
-                 ))
-               ) : (
-                 renderEmptyState("comments", "Browse Videos", () => navigate("/explore"))
-               )}
-               {comments.length > 5 && (
-                 <Pagination 
-                   currentPage={commentsPage}
-                   totalPages={commentsTotalPages}
-                   onPageChange={setCommentsPage}
-                 />
-               )}
-             </CardContent>
-           </TabsContent>
-           
-           {/* Playlists Tab */}
+{/* Comments Tab */}
 <TabsContent 
+  value="comments" 
+  className="space-y-4 bg-white/60 backdrop-blur-lg rounded-2xl p-6 border border-white/30 shadow-xl"
+>
+  <CardHeader>
+    <CardTitle className="text-xl text-gray-800">Your Comments</CardTitle>
+  </CardHeader>
+  <CardContent className="space-y-4">
+    {paginatedComments && paginatedComments.length > 0 ? (
+      paginatedComments.map((comment) => (
+        <div 
+          key={comment.id} 
+          className="bg-white/70 backdrop-blur-lg rounded-xl p-4 shadow-md border border-white/30 hover:shadow-xl transition-all"
+        >
+          <div className="flex items-start gap-4">
+            {/* Video Thumbnail */}
+            <div 
+              className="flex-shrink-0 w-24 h-16 rounded-lg overflow-hidden cursor-pointer"
+              onClick={() => navigate(`/video/${comment.videoId}`)}
+            >
+              <img 
+                src={comment.video.thumbnail || "/api/placeholder/160/90"} 
+                alt={comment.videoTitle || "Video thumbnail"} 
+                className="w-full h-full object-cover"
+              />
+            </div>
+            
+            {/* Comment Content */}
+            <div className="flex-1">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h4 
+                    className="font-medium text-blue-600 cursor-pointer hover:text-blue-800" 
+                    onClick={() => navigate(`/video/${comment.videoId}`)}
+                  >
+                    {comment.video.title || "Video"}
+                  </h4>
+                </div>
+                
+                {/* Delete Button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 h-8"
+                  onClick={() => handleDeleteComment(comment.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <p className="mt-2 text-gray-700">{comment.content}</p>
+              
+              {/* Like Count Only */}
+              <div className="mt-3 flex items-center gap-4">
+                <div className="flex items-center gap-1 text-sm text-gray-500">
+                  <ThumbsUp className="h-4 w-4" />
+                  <span>{comment.likes.length || 0}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ))
+    ) : (
+      renderEmptyState("comments", "Browse Videos", () => navigate("/explore"))
+    )}
+    {comments.length > 5 && (
+      <Pagination 
+        currentPage={commentsPage}
+        totalPages={commentsTotalPages}
+        onPageChange={setCommentsPage}
+      />
+    )}
+  </CardContent>
+</TabsContent>
+           {/* Playlists Tab */}
+           <TabsContent 
   value="playlists" 
   className="space-y-4 bg-white/60 backdrop-blur-lg rounded-2xl p-6 border border-white/30 shadow-xl"
 >
@@ -769,35 +835,42 @@ function Dashboard() {
   </CardHeader>
   <CardContent className="space-y-4">
     {paginatedPlaylists.length > 0 ? (
-      paginatedPlaylists.map((playlist) => renderItemCard(
-        playlist, 
-        'playlist', 
-        [
-          { 
-            label: 'Edit', 
-            onClick: () => navigate(`/playlist/edit/${playlist.id}`),
-            className: 'text-blue-600'
-          },
-          { 
-            label: playlist.isPublic ? 'Make Private' : 'Make Public', 
-            onClick: () => {
-              // Implement playlist privacy toggle logic here
-              // This is a placeholder and should be replaced with actual API call
-              console.log(`Toggle playlist ${playlist.id} privacy`);
+      paginatedPlaylists.map((playlist) => {
+        // Create a modified playlist object with the user's avatar as the thumbnail
+        // if you want to keep the original playlist data intact
+        const playlistWithAvatar = {
+          ...playlist,
+          thumbnail: playlist.user?.avatar || playlist.thumbnail
+        };
+        
+        return renderItemCard(
+          playlistWithAvatar, 
+          'playlist', 
+          [
+            { 
+              label: 'Edit', 
+              onClick: () => navigate(`/playlist/${playlist.id}`),
+              className: 'text-blue-600'
             },
-            className: playlist.isPublic ? 'text-orange-600' : 'text-green-600'
-          },
-          { 
-            label: 'Delete', 
-            onClick: () => {
-              // Implement playlist delete logic here
-              // This is a placeholder and should be replaced with actual API call
-              console.log(`Delete playlist ${playlist.id}`);
+            { 
+              label: playlist.isPublic ? 'Make Private' : 'Make Public', 
+              onClick: () => {
+                // Implement playlist privacy toggle logic here
+                console.log(`Toggle playlist ${playlist.id} privacy`);
+              },
+              className: playlist.isPublic ? 'text-orange-600' : 'text-green-600'
             },
-            className: 'text-red-600'
-          }
-        ]
-      ))
+            { 
+              label: 'Delete', 
+              onClick: () => {
+                // Implement playlist delete logic here
+                console.log(`Delete playlist ${playlist.id}`);
+              },
+              className: 'text-red-600'
+            }
+          ]
+        );
+      })
     ) : (
       renderEmptyState("playlists", "Create Your First Playlist", () => navigate("/create-playlist"))
     )}
@@ -897,47 +970,92 @@ function Dashboard() {
 
         {/* Watch History Tab */}
         <TabsContent 
-         value="history" 
-         className="space-y-4 bg-white/60 backdrop-blur-lg rounded-2xl p-6 border border-white/30 shadow-xl"
-       >
-         <CardHeader>
-           <CardTitle className="text-xl text-gray-800">Watch History</CardTitle>
-         </CardHeader>
-         <CardContent>
-           {watchHistory && watchHistory.length > 0 ? (
-             <div className="space-y-4">
-               {paginatedHistory.map((item) => renderItemCard(item, 'video'))}
-       
-               {/* Pagination Controls */}
-               {watchHistory.length > itemsPerPage && (
-                 <div className="flex justify-center items-center mt-6 space-x-4">
-                   <Button
-                     variant="outline"
-                     className="bg-white/70 backdrop-blur-lg border-gray-200 hover:bg-gray-100 transition-all transform hover:scale-105"
-                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                     disabled={currentPage === 1}
-                   >
-                     <ChevronLeft className="h-5 w-5 text-gray-600" />
-                   </Button>
-                   <span className="text-sm text-gray-600">
-                     Page {currentPage} of {totalPages}
-                   </span>
-                   <Button
-                     variant="outline"
-                     className="bg-white/70 backdrop-blur-lg border-gray-200 hover:bg-gray-100 transition-all transform hover:scale-105"
-                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                     disabled={currentPage === totalPages}
-                   >
-                     <ChevronRight className="h-5 w-5 text-gray-600" />
-                   </Button>
-                 </div>
-               )}
-             </div>
-           ) : (
-             renderEmptyState("watch history", "Browse Videos", () => navigate("/explore"))
-           )}
-         </CardContent>
-       </TabsContent>
+  value="history" 
+  className="space-y-4 bg-white/60 backdrop-blur-lg rounded-2xl p-6 border border-white/30 shadow-xl"
+>
+  <CardHeader>
+    <CardTitle className="text-xl text-gray-800">Watch History</CardTitle>
+  </CardHeader>
+  <CardContent>
+    {watchHistory && watchHistory.length > 0 ? (
+      <div className="space-y-4">
+        {paginatedHistory.map((item) => (
+          <div
+            key={item.id}
+            className="flex items-center bg-white/70 backdrop-blur-lg rounded-xl p-4 shadow-md hover:shadow-xl transition-all transform hover:-translate-y-1 border border-white/30 space-x-4 cursor-pointer"
+            onClick={() => navigate(`/video/${item.id}`)}
+          >
+            {/* Thumbnail */}
+            <div className="h-20 w-36 rounded-lg overflow-hidden flex-shrink-0 relative">
+              {item.thumbnail ? (
+                <img
+                  src={item.thumbnail}
+                  alt={item.title}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                  <Play className="text-gray-500" />
+                </div>
+              )}
+              <div className="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-2 rounded">
+                {formatDuration(item.duration) || "00:00"}
+              </div>
+              {item.completionRate && (
+                <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-200">
+                  <div 
+                    className="h-full bg-red-600" 
+                    style={{ width: `${item.completionRate}%` }}
+                  ></div>
+                </div>
+              )}
+            </div>
+
+            {/* Content */}
+            <div className="flex-1">
+              <h3 className="font-semibold text-gray-800 mb-1 hover:text-blue-600 transition-colors">
+                {item.title}
+              </h3>
+              
+              <div className="text-xs text-gray-500 space-y-1">
+                <div>{item.views || 0} views</div>
+                <div>Watched: {new Date(item.createdAt).toLocaleDateString()}</div>
+                {item.lastPosition > 0 && (
+                  <div>Last watched at: {formatDuration(item.lastPosition)}</div>
+                )}
+              </div>
+            </div>
+
+            {/* Channel info if available */}
+            {item.user && (
+              <div className="text-xs text-gray-600 flex items-center">
+                {item.user.avatar && (
+                  <img 
+                    src={item.user.avatar} 
+                    alt={item.user.username} 
+                    className="w-6 h-6 rounded-full mr-2"
+                  />
+                )}
+                <span>{item.user.username || item.user.fullName}</span>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {/* Pagination Controls */}
+        {watchHistory.length > itemsPerPage && (
+          <Pagination 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
+        )}
+      </div>
+    ) : (
+      renderEmptyState("watch history", "Browse Videos", () => navigate("/explore"))
+    )}
+  </CardContent>
+</TabsContent>
           </Tabs>
         </div>
       </div>
