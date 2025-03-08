@@ -14,8 +14,6 @@ import { Button } from "../ui/button.jsx";
 
 const Profile = () => {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const [subscribers, setSubscribers] = useState([]);
-  const [videos, setVideos] = useState([]);
   const [watchHistory, setWatchHistory] = useState([]);
   
   const navigate = useNavigate();
@@ -34,6 +32,7 @@ const Profile = () => {
       totalSubscribers: "",
       totalLikes: "",
       totalViews: "",
+      totalTweets: "",
     },
   });
   
@@ -73,18 +72,6 @@ const Profile = () => {
         });
         setWatchHistory(historyResponse.data.data || []);
         
-        // Now that we have the user ID and username, fetch subscribers and videos
-        if (userData.id && userData.username) {
-          // Fetch subscribers
-          const subscribersResponse = await api.get(`/api/v1/subscriptions/u/${userData.id}`, {
-          });
-          setSubscribers(subscribersResponse.data?.data?.subscribers || []);
-          
-          // Fetch videos
-          const videoResponse = await api.get(`/api/v1/videos/user/${userData.username}`, {
-          });
-          setVideos(videoResponse.data?.videos || []);
-        }
       } catch (err) {
         console.error("Error fetching user data:", err);
         setError("Failed to load profile data. Please try again later.");
@@ -385,6 +372,12 @@ const Profile = () => {
                   <span className="text-gray-700 font-medium">Total Views</span>
                   <span className="font-semibold bg-white px-3 py-1 rounded-lg text-center min-w-16 shadow-sm text-blue-700">
                     {user.stats?.totalViews || 0}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm">
+                  <span className="text-gray-700 font-medium">Total Tweets</span>
+                  <span className="font-semibold bg-white px-3 py-1 rounded-lg text-center min-w-16 shadow-sm text-blue-700">
+                    {user.stats?.totalTweets || 0}
                   </span>
                 </div>
               </div>

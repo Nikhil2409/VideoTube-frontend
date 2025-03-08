@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Users, Heart, MessageSquare, Share2 } from 'lucide-react';
+import { Users, Heart, MessageSquare, Share2, Eye } from 'lucide-react';
 import { Navbar } from "../Navbar.jsx";
 import { useAuth } from "../../context/AuthContext.jsx"
 import { set } from 'date-fns';
@@ -143,7 +143,20 @@ const Channel = () => {
         console.log("videos");
         
         const tweetsResponse = await api.get(`/api/v1/tweets/user/${response.data.data.id}`);
-        setTweets(tweetsResponse.data.tweets || DUMMY_TWEETS);
+        const tweetsWithComments = await Promise.all(
+          tweetsResponse.data.tweets.map(async (tweet) => {
+            const commentsResponse = await api.get(`/api/v1/comments/tweet/${tweet.id}`);
+            console.log(commentsResponse);
+            const comments = commentsResponse.data.data.comments;
+            
+            // Return the tweet with an added commentCount property
+            return {
+              ...tweet,
+              comments: comments.length
+            };
+          })
+        );
+        setTweets(tweetsWithComments || DUMMY_TWEETS);
 
         console.log(tweetsResponse);
 
@@ -430,8 +443,8 @@ const Channel = () => {
                      <span>{new Date(tweet.createdAt).toLocaleDateString()}</span>
                      <div className="flex space-x-4">
                        <div className="flex items-center space-x-1 hover:text-red-500 transition-colors">
-                         <Heart size={16} />
-                         <span>{tweet.likesCount || 0}</span>
+                         <Eye size={16} />
+                         <span>{tweet.views || 0}</span>
                        </div>
                        <div className="flex items-center space-x-1 hover:text-blue-500 transition-colors">
                          <MessageSquare size={16} />

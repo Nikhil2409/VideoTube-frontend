@@ -3,20 +3,19 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Navbar } from "./Navbar";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import {
   Play,
-  MessageSquare,
-  ListVideo,
-  Users,
   ThumbsUp,
-  Bell,
   RefreshCw,
   AlertCircle,
-  Compass,
   Trash2,
+  Pencil,
+  Lock,
+  Globe,
+  Trash,
 } from "lucide-react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
@@ -197,7 +196,7 @@ function Dashboard() {
       }).catch(() => ({ data: { data: [] } }));
       
       //Fetch Comments
-      const comments = await api.get(`/api/v1/comments/all/${userId}`, {
+      const comments = await api.get(`/api/v1/comments/user/video/${userId}`, {
         signal
       })
       
@@ -210,6 +209,8 @@ function Dashboard() {
       const tweets  = await api.get(`/api/v1/tweets/user/${userId}`, {
         signal
       })
+
+      console.log(comments);
 
       // Transform watch history data to match the expected format in your UI
       const formattedWatchHistory = watchHistoryResponse.data?.data?.map(item => ({
@@ -308,7 +309,7 @@ function Dashboard() {
       const accessToken = user.accessToken;
       
       // Call API to delete the comment
-      const response = await api.delete(`/api/v1/comments/c/${commentId}`, {
+      const response = await api.delete(`/api/v1/comments/video/edit/${commentId}`, {
       });
       
       if (response.data.success) {
@@ -637,12 +638,6 @@ const renderItemCard = (item, type, actions = []) => (
                   <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                   Refresh
                 </Button>
-                <Button
-                  onClick={() => navigate("/VideoUpload")}
-                  className="bg-white text-blue-600 hover:bg-white/90 shadow-md"
-                >
-                  Upload Video
-                </Button>
               </div>
             </div>
           </div>
@@ -819,60 +814,104 @@ const renderItemCard = (item, type, actions = []) => (
     )}
   </CardContent>
 </TabsContent>
-           {/* Playlists Tab */}
-           <TabsContent 
+{/* Playlists Tab */}
+<TabsContent 
   value="playlists" 
   className="space-y-4 bg-white/60 backdrop-blur-lg rounded-2xl p-6 border border-white/30 shadow-xl"
 >
   <CardHeader>
-    <CardTitle className="text-xl text-gray-800">Your Playlists</CardTitle>
+    <CardTitle className="text-xl text-gray-800 flex items-center justify-between">
+      Your Playlists
+      <Button 
+        onClick={() => navigate("/create-playlist")} 
+        className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105"
+      >
+        New Playlist
+      </Button>
+    </CardTitle>
   </CardHeader>
-  <CardContent className="space-y-4">
+  <CardContent>
     {paginatedPlaylists.length > 0 ? (
-      paginatedPlaylists.map((playlist) => {
-        // Create a modified playlist object with the user's avatar as the thumbnail
-        // if you want to keep the original playlist data intact
-        const playlistWithAvatar = {
-          ...playlist,
-          thumbnail: playlist.user?.avatar || playlist.thumbnail
-        };
-        
-        return renderItemCard(
-          playlistWithAvatar, 
-          'playlist', 
-          [
-            { 
-              label: 'Edit', 
-              onClick: () => navigate(`/playlist/${playlist.id}/true`),
-              className: 'text-blue-600'
-            },
-            { 
-              label: playlist.isPublic ? 'Make Private' : 'Make Public', 
-              onClick: () => {
-                // Implement playlist privacy toggle logic here
-                console.log(`Toggle playlist ${playlist.id} privacy`);
-              },
-              className: playlist.isPublic ? 'text-orange-600' : 'text-green-600'
-            },
-            { 
-              label: 'Delete', 
-              onClick: () => {
-                // Implement playlist delete logic here
-                console.log(`Delete playlist ${playlist.id}`);
-              },
-              className: 'text-red-600'
-            }
-          ]
-        );
-      })
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {paginatedPlaylists.map((playlist) => (
+          <div 
+            key={playlist.id} 
+            className="bg-white/70 backdrop-blur-lg rounded-xl shadow-md hover:shadow-xl transition-all transform hover:-translate-y-1 border border-white/30 overflow-hidden cursor-pointer"
+            onClick={() => navigate(`/playlist/${playlist.id}/false`)}
+          >
+            {/* Thumbnail with video count overlay */}
+            <div className="relative w-full h-40 overflow-hidden">
+              <img 
+                src={playlist.user?.avatar || "/api/placeholder/400/200"} 
+                alt={playlist.title} 
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center">
+                <Play className="h-3 w-3 mr-1" />
+                {playlist.videos.length || 0} videos
+              </div>
+            </div>
+            
+            {/* Playlist info */}
+            <div className="p-4">
+              <h3 className="font-semibold text-gray-800 mb-1 hover:text-blue-600 transition-colors">{playlist.title}</h3>
+              <p className="text-xs text-gray-500 mb-3 truncate">{playlist.description || 'No description'}</p>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-500">
+                  {playlist.isPublic ? 'Public' : 'Private'} • {new Date(playlist.updatedAt).toLocaleDateString()}
+                </span>
+                
+                {/* Actions */}
+                <div className="flex space-x-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="hover:bg-gray-100 text-blue-600 p-1 h-8 w-8"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/playlist/${playlist.id}/true`);
+                    }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`hover:bg-gray-100 p-1 h-8 w-8 ${playlist.isPublic ? 'text-orange-600' : 'text-green-600'}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      console.log(`Toggle playlist ${playlist.id} privacy`);
+                    }}
+                  >
+                    {playlist.isPublic ? <Lock className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="hover:bg-gray-100 text-red-600 p-1 h-8 w-8"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      console.log(`Delete playlist ${playlist.id}`);
+                    }}
+                  >
+                    <Trash className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     ) : (
       renderEmptyState("playlists", "Create Your First Playlist", () => navigate("/create-playlist"))
     )}
-    {playlists.length > 5 && (
+    {playlists.length > 6 && (
       <Pagination 
         currentPage={playlistsPage}
         totalPages={playlistsTotalPages}
         onPageChange={setPlaylistsPage}
+        className="mt-4"
       />
     )}
   </CardContent>
@@ -893,7 +932,9 @@ const renderItemCard = (item, type, actions = []) => (
           key={subscriber.id} 
           className="bg-white/70 backdrop-blur-lg rounded-xl p-4 shadow-md border border-white/30 flex items-center hover:shadow-xl transition-all transform hover:-translate-y-1"
         >
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-4"
+          onClick={() => navigate(`/c/${subscriber.username}`)}
+          >
             <img 
               src={subscriber.avatar || '/default-avatar.png'} 
               alt={subscriber.username} 

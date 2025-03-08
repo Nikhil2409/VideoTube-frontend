@@ -1,19 +1,14 @@
 import React, { useState, useCallback } from "react"
 import { 
-  User, 
   Search, 
   Video, 
-  LogOut, 
   ChevronLeft, 
   Pen, 
   Play, 
   Trash2, 
-  Clock, 
-  Heart, 
-  MessageCircle, 
+  Clock,  
   ListVideo, 
-  Settings,
-  WatchIcon
+  Settings
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { useNavigate } from "react-router-dom"
@@ -176,15 +171,6 @@ function Navbar({onDataDelete}) {
           <Pen className="h-5 w-5 text-blue-600" />
         </Button>
       
-        <Button 
-          variant="outline" 
-          size="icon" 
-          onClick={() => navigate("/create-playlist")}
-          className="hover:bg-gray-50"
-        >
-          <Play className="h-5 w-5 text-blue-600" />
-        </Button>
-
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button 

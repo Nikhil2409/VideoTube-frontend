@@ -8,11 +8,9 @@ import {
   Home, 
   User, 
   LogOut, 
-  Video, 
   Compass, 
   Heart, 
-  Settings, 
-  PlayCircle 
+  PlayCircle,
 } from "lucide-react";
 import { 
   Dialog, 
@@ -66,15 +64,15 @@ function Sidebar() {
     },
     { 
       icon: PlayCircle, 
-      label: "My Videos", 
-      path: "/my-videos",
-      activeCondition: (path) => path.startsWith("/my-videos")
+      label: "My Content", 
+      path: "/my-content",
+      activeCondition: (path) => path.startsWith("/my-content")
     },
     { 
       icon: Heart, 
-      label: "Liked Videos", 
-      path: "/likedVideos",
-      activeCondition: (path) => path ===  "/likedVideos"
+      label: "Liked Content", 
+      path: "/likedContent",
+      activeCondition: (path) => path ===  "/likedContent"
     },
     { 
       icon: User, 

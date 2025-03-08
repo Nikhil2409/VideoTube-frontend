@@ -60,7 +60,7 @@ function VideoPlayer() {
   const [isSubscribing, setIsSubscribing] = useState(false);
   const viewCountUpdated = useRef(false);
   
-  // New state for comments
+  // States for comments
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
@@ -108,10 +108,10 @@ function VideoPlayer() {
     try{
       const accessToken = user.accessToken;
       
-      // Fix: Headers should be passed as a config object, not in the request body
       await api.post(`/api/v1/users/addToWatchHistory/${videoId}`, {}, { 
+        headers: { Authorization: `Bearer ${accessToken}` }
       }); 
-    }catch(error){
+    } catch(error){
       console.error("Error adding to watch history:", error);
     }
   } 
@@ -133,7 +133,7 @@ function VideoPlayer() {
       // Extract video data from the response
       const videoData = response.data.data;
       
-      console.log(videoData);
+      console.log("Video data:", videoData);
       // Set video data
       setVideo(videoData);
       
@@ -154,7 +154,6 @@ function VideoPlayer() {
       // Check if current user has liked the video
       setIsLiked(videoData.isLiked || false);
       
-      
       if (user) {
         addToWatchHistory();
       }
@@ -173,149 +172,276 @@ function VideoPlayer() {
     }
   };
   
-// Fixed mapping function for comments from API
-const mapComment = (backendComment) => {
-  return {
-    id: backendComment.id,
-    content: backendComment.content || backendComment.text, // Handle both field names
-    createdAt: backendComment.createdAt,
-    owner: {
-      id: backendComment.user?.id || backendComment.owner?.id,
-      fullName: backendComment.user?.fullName || backendComment.owner?.fullName,
-      username: backendComment.user?.username || backendComment.owner?.username,
-      avatar: backendComment.user?.avatar || backendComment.owner?.avatar
+  // FIXED: Improved mapComment function to handle all possible response structures
+  const mapComment = (backendComment) => {
+    if (!backendComment) return null;
+    
+    // Get proper likesCount by checking for likes array or likesCount property
+    let likesCount = 0;
+    
+    if (backendComment.likesCount !== undefined) {
+      likesCount = backendComment.likesCount;
+    } else if (Array.isArray(backendComment.likes)) {
+      likesCount = backendComment.likes.length;
+    }
+  
+    // Check if current user has liked this comment
+    let isLiked = false;
+    if (backendComment.isLiked !== undefined) {
+      isLiked = backendComment.isLiked;
+    }
+    
+    // Ensure we have an owner object with all needed properties
+    const ownerObj = backendComment.user || backendComment.owner || {};
+    
+    return {
+      id: backendComment._id || backendComment.id,
+      content: backendComment.content || backendComment.text || "", 
+      createdAt: backendComment.createdAt || new Date().toISOString(),
+      likesCount: likesCount,
+      isLiked: isLiked,
+      owner: {
+        id: ownerObj._id || ownerObj.id || "unknown",
+        fullName: ownerObj.fullName || ownerObj.username || "Anonymous",
+        username: ownerObj.username || "user",
+        avatar: ownerObj.avatar || null
+      }
+    };
+  };
+  
+  // FIXED: Update fetchComments to properly handle API response and maintain comments state
+  const fetchComments = async () => {
+    if (!videoId) return;
+    
+    try {
+      const accessToken = user?.accessToken;
+      const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+      
+      // Add pagination parameters
+      const page = 1; // Start with first page
+      const limit = 50; // Reasonable default limit
+      
+      const response = await api.get(`/api/v1/comments/video/${videoId}?page=${page}&limit=${limit}`, { headers });
+      
+      if (response.data.success) {
+        const commentData = response.data.data;
+        console.log("Raw comment data:", commentData);
+        
+        // Handle different possible response structures
+        let commentsArray = [];
+        if (Array.isArray(commentData)) {
+          commentsArray = commentData;
+        } else if (commentData.comments && Array.isArray(commentData.comments)) {
+          commentsArray = commentData.comments;
+        } else if (typeof commentData === 'object') {
+          // If single comment object is returned
+          commentsArray = [commentData];
+        }
+        
+        // Map the backend comments to the frontend format, filtering out any null values
+        const mappedComments = commentsArray
+          .map(mapComment)
+          .filter(comment => comment !== null);
+        
+        console.log("Mapped comments:", mappedComments);
+        setComments(mappedComments);
+        setCommentCount(commentData.totalComments || mappedComments.length);
+        setCommentsError("");
+      }
+      
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+      setCommentsError("Failed to load comments");
+      // Keep existing comments rather than setting to empty array
     }
   };
-};
-
-// Fixed fetchComments function
-const fetchComments = async () => {
-  if (!videoId) return;
   
-  try {
-    const accessToken = user?.accessToken;
-    const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
-    
-    // Add pagination parameters
-    const page = 1; // Start with first page
-    const limit = 50; // Reasonable default limit
-    
-    const response = await api.get(`/api/v1/comments/${videoId}?page=${page}&limit=${limit}`, { headers });
-    
-    if (response.data.success) {
-      const commentData = response.data.data;
-      // Map the backend comments to the frontend format
-      const mappedComments = Array.isArray(commentData.comments) 
-        ? commentData.comments.map(mapComment)
-        : [];
-        console.log("Raw comment data:", commentData);
-        console.log("Mapped comment:", mappedComments);
-      setComments(mappedComments);
-      setCommentCount(commentData.totalComments || mappedComments.length);
-      setCommentsError("");
+  // Fixed handleCommentLikeToggle with proper error handling
+  const handleCommentLikeToggle = async (commentId) => {
+    if (!user) {
+      navigate("/login");
+      return;
     }
     
-  } catch (error) {
-    console.error("Error fetching comments:", error);
-    setCommentsError("Failed to load comments");
-    // Set empty comments array to prevent errors
-    setComments([]);
-  }
-};
-
-// Fixed handleAddComment function to match backend expectations
-const handleAddComment = async (e) => {
-  e.preventDefault();
-  
-  if (!user) {
-    navigate("/login");
-    return;
-  }
-  
-  if (!newComment.trim()) {
-    return;
-  }
-  
-  setIsSubmittingComment(true);
-  
-  try {
-    const accessToken = user.accessToken;
+    // Find the comment in state
+    const commentToUpdate = comments.find(comment => comment.id === commentId);
+    if (!commentToUpdate) return;
     
-    // FIX: Use "text" field as shown in backend code (document 1)
-    const response = await api.post("/api/v1/comments", {
-      videoId, 
-      text: newComment  // Use "text" as expected by the backend
-    }, );
+    // Optimistic UI update - only change by 1 each time
+    const isCurrentlyLiked = commentToUpdate.isLiked;
+    const currentLikesCount = commentToUpdate.likesCount;
     
-    if (response.data.success) {
-      const newCommentData = response.data.data;
+    // Update the comment with new like status (making sure we only add/remove exactly 1)
+    setComments(prevComments => 
+      prevComments.map(comment =>
+        comment.id === commentId 
+          ? { 
+              ...comment, 
+              isLiked: !isCurrentlyLiked,
+              likesCount: isCurrentlyLiked 
+                ? Math.max(0, currentLikesCount - 1) 
+                : currentLikesCount + 1
+            }
+          : comment
+      )
+    );
+    
+    try {
+      const accessToken = user.accessToken;
       
-      // Create properly formatted comment object
-      const commentForDisplay = mapComment(newCommentData);
+      // Call the API to toggle like status for the comment
+      const response = await api.post(`/api/v1/likes/toggle/c/${commentId}`, {}, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
       
-      // Update comments state with new comment
-      setComments(prevComments => [commentForDisplay, ...prevComments]);
-      setCommentCount(prevCount => prevCount + 1);
-      setNewComment("");
-      setCommentsError("");
-    }
-  } catch (error) {
-    console.error("Error adding comment:", error);
-    setCommentsError("Failed to add comment");
-  } finally {
-    setIsSubmittingComment(false);
-  }
-};
-
-// Fixed handleUpdateComment function to match backend expectations
-const handleUpdateComment = async (commentId) => {
-  if (!editedCommentContent.trim() || !user) {
-    return;
-  }
-  
-  try {
-    const accessToken = user.accessToken;
-    
-    // FIX: Use "text" field as shown in backend code (document 1)
-    const response = await api.patch(`/api/v1/comments/${commentId}`, {
-      text: editedCommentContent  // Use only "text" as expected by the backend
-    });
-    
-    if (response.data.success) {
-      const updatedComment = response.data.data;
+      // Only update UI from server response if the response contains valid data
+      if (response.data && response.data.data) {
+        // Get the accurate like status from the server response
+        const serverLiked = response.data.data.liked;
+        
+        // Update UI to match server state if different from our optimistic update
+        setComments(prevComments => 
+          prevComments.map(comment =>
+            comment.id === commentId 
+              ? { 
+                  ...comment,
+                  isLiked: serverLiked,
+                  // Adjust likesCount based on server response if needed
+                  likesCount: serverLiked !== comment.isLiked 
+                    ? (serverLiked ? comment.likesCount + 1 : Math.max(0, comment.likesCount - 1))
+                    : comment.likesCount
+                }
+              : comment
+          )
+        );
+      }
+    } catch (error) {
+      console.error("Error toggling comment like:", error);
       
-      // Update the comment in the list
+      // Revert optimistic update on error
       setComments(prevComments => 
-        prevComments.map(comment => 
+        prevComments.map(comment =>
           comment.id === commentId 
             ? { 
                 ...comment, 
-                content: updatedComment.content || updatedComment.text, 
-                updatedAt: updatedComment.updatedAt 
+                isLiked: isCurrentlyLiked,
+                likesCount: currentLikesCount
               }
             : comment
         )
       );
       
-      // Reset editing state
-      setEditingCommentId(null);
-      setEditedCommentContent("");
-      setCommentsError("");
+      setCommentsError("Failed to update like status");
     }
-  } catch (error) {
-    console.error("Error updating comment:", error);
-    setCommentsError("Failed to update comment");
-  }
-};
+  };
 
-  // Function to delete a comment
+  // FIXED: handleAddComment function to maintain comment state
+  const handleAddComment = async (e) => {
+    e.preventDefault();
+    
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+    
+    if (!newComment.trim()) {
+      return;
+    }
+    
+    setIsSubmittingComment(true);
+    
+    try {
+      const accessToken = user.accessToken;
+      
+      // FIXED: Updated to match the new route structure and payload
+      const response = await api.post("/api/v1/comments/video", {
+        videoId, 
+        text: newComment  // Use "text" as expected by the backend
+      }, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      
+      if (response.data.success) {
+        const newCommentData = response.data.data;
+        console.log("New comment response:", newCommentData);
+        
+        // Create properly formatted comment object
+        const commentForDisplay = mapComment(newCommentData);
+        
+        if (commentForDisplay) {
+          // Update comments state with new comment
+          setComments(prevComments => [commentForDisplay, ...prevComments]);
+          setCommentCount(prevCount => prevCount + 1);
+        }
+        
+        setNewComment("");
+        setCommentsError("");
+      }
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      setCommentsError("Failed to add comment");
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
+
+  // FIXED: handleUpdateComment function to properly update comment state
+  const handleUpdateComment = async (commentId) => {
+    if (!editedCommentContent.trim() || !user) {
+      return;
+    }
+    
+    try {
+      const accessToken = user.accessToken;
+      
+      const response = await api.patch(`/api/v1/comments/video/${commentId}`, {
+        text: editedCommentContent  // Use "text" as expected by the backend
+      }, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      
+      if (response.data.success) {
+        const updatedComment = response.data.data;
+        console.log("Updated comment response:", updatedComment);
+        
+        // Create a properly formatted updated comment
+        const mappedUpdatedComment = mapComment(updatedComment);
+        
+        if (mappedUpdatedComment) {
+          // Update the comment in the list, preserving all properties
+          setComments(prevComments => 
+            prevComments.map(comment => 
+              comment.id === commentId 
+                ? { 
+                    ...comment,  // Keep existing properties
+                    content: mappedUpdatedComment.content,
+                    updatedAt: mappedUpdatedComment.updatedAt || new Date().toISOString()
+                  }
+                : comment
+            )
+          );
+        }
+        
+        // Reset editing state
+        setEditingCommentId(null);
+        setEditedCommentContent("");
+        setCommentsError("");
+      }
+    } catch (error) {
+      console.error("Error updating comment:", error);
+      setCommentsError("Failed to update comment");
+    }
+  };
+
+  // FIXED: Function to delete a comment
   const handleDeleteComment = async (commentId) => {
     if (!user) return;
     
     try {
       const accessToken = user.accessToken;
       
-      const response = await api.delete(`/api/v1/comments/${commentId}`, {
+      const response = await api.delete(`/api/v1/comments/video/${commentId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
       });
       
       if (response.data.success) {
@@ -323,7 +449,7 @@ const handleUpdateComment = async (commentId) => {
         setComments(prevComments => 
           prevComments.filter(comment => comment.id !== commentId)
         );
-        setCommentCount(prevCount => prevCount - 1);
+        setCommentCount(prevCount => Math.max(0, prevCount - 1));
         setCommentsError("");
       }
     } catch (error) {
@@ -344,16 +470,38 @@ const handleUpdateComment = async (commentId) => {
     setEditedCommentContent("");
   };
   
-  // Separate effect for video fetch - high priority
+  // FIXED: Added debounce to prevent multiple fetches
   useEffect(() => {
-    fetchVideoDetails();
+    let isMounted = true;
+    
+    const fetchData = async () => {
+      if (isMounted) {
+        await fetchVideoDetails();
+      }
+    };
+    
+    fetchData();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [videoId, user]);
   
-  // Separate effect for comments fetch
+  // FIXED: Separate effect for comments fetch with better cleanup
   useEffect(() => {
-    if (videoId) {
-      fetchComments();
-    }
+    let isMounted = true;
+    
+    const getComments = async () => {
+      if (videoId && isMounted) {
+        await fetchComments();
+      }
+    };
+    
+    getComments();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [videoId, user]);
 
   // Separate effect for view count - lower priority
@@ -389,6 +537,7 @@ const handleUpdateComment = async (commentId) => {
     try {
       const accessToken = user.accessToken;
       await api.post(`/api/v1/likes/toggle/v/${videoId}`, {}, {
+        headers: { Authorization: `Bearer ${accessToken}` }
       });
       
       // No need to refetch everything, we've already updated the UI
@@ -414,6 +563,7 @@ const handleUpdateComment = async (commentId) => {
     try {
       const accessToken = user.accessToken;
       const response = await api.post(`/api/v1/subscriptions/c/${video.owner.id}`, {}, {
+        headers: { Authorization: `Bearer ${accessToken}` }
       });
       
       // Update subscription state based on the server response
@@ -661,7 +811,7 @@ const handleUpdateComment = async (commentId) => {
                     <div className="flex-grow">
                       <div className="flex items-center space-x-2 mb-1">
                         <span className="font-medium">
-                          {comment.owner?.fullname || comment.owner?.username || "Anonymous"}
+                          {comment.owner?.fullName || comment.owner?.username || "Anonymous"}
                         </span>
                         <span className="text-xs text-gray-500">
                           {formatRelativeTime(comment.createdAt)}
@@ -717,7 +867,24 @@ const handleUpdateComment = async (commentId) => {
                           </div>
                         </div>
                       ) : (
-                        <p className="text-gray-700">{comment.content}</p>
+                        <div>
+                          <p className="text-gray-700">{comment.content}</p>
+                          
+                          {/* NEW: Comment like button */}
+                          <div className="mt-2 flex items-center">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`flex items-center gap-1 px-2 h-8 ${
+                                comment.isLiked ? 'text-blue-600' : 'text-gray-600'
+                              }`}
+                              onClick={() => handleCommentLikeToggle(comment.id)}
+                            >
+                              <ThumbsUp className="h-4 w-4" />
+                              <span className="text-xs">{comment.likesCount}</span>
+                            </Button>
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
