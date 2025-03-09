@@ -648,8 +648,8 @@ const renderItemCard = (item, type, actions = []) => (
             onValueChange={setActiveTab}
             className="space-y-4"
           >
-            <TabsList className="bg-white/60 backdrop-blur-lg border border-white/30 p-1 rounded-xl">
-        {[
+          <TabsList className="bg-white/80 backdrop-blur-xl shadow-lg border border-gray-200 rounded-2xl w-full grid grid-cols-7 gap-2">
+         {[
           { name: "Videos", stat: dashboardData.videos.length || 0},
           { name: "Likes", stat: dashboardData.likedVideos.length || 0},
           { name: "Comments", stat: dashboardData.comments.length || 0},
