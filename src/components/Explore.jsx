@@ -294,15 +294,15 @@ function ExplorePage() {
    <div className="flex h-screen w-full bg-gradient-to-br from-gray-50 to-blue-50">
       <Sidebar isVisible={isSidebarVisible} toggleSidebar={toggleSidebar} />
       <div 
-        className={`flex flex-col flex-1 overflow-auto transition-all duration-300 ${
-          isSidebarVisible ? 'ml-64' : 'ml-0'
-        }`}
+        className={`flex flex-col flex-1 `}
       >
         <Navbar
           toggleSidebar={toggleSidebar}
         />
         
-        <div className="container mx-auto px-4 py-6 max-w-6xl">
+        <div className={`container mx-auto px-4 py-6 max-w-6xl overflow-auto transition-all duration-300 ${
+          isSidebarVisible ? 'ml-64' : 'ml-0'
+        }`}>
           <div className="flex flex-col md:flex-row justify-between items-center mb-6">
             <h1 className="text-3xl font-bold">Explore</h1>
             

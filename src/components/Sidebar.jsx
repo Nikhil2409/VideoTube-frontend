@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   NavLink, 
   useNavigate, 
@@ -12,7 +12,8 @@ import {
   Heart, 
   PlayCircle,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Users
 } from "lucide-react";
 import { 
   Dialog, 
@@ -25,12 +26,16 @@ import { Button } from "./ui/button";
 import { useAuth } from "../context/AuthContext";
 import axios from "axios";
 import { cacheUtils } from "./utils/cacheUtils";
+import { set } from "date-fns";
+
 
 function Sidebar({ isVisible, toggleSidebar }) {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, user } = useAuth();
+  const [subscribers, setSubscribers] = useState([]);
+  const [cacheSubscribers, setCacheSubscribers] = useState([]);
 
   const api = axios.create({
     baseURL: "http://localhost:3900",
@@ -50,6 +55,41 @@ function Sidebar({ isVisible, toggleSidebar }) {
       console.error("Error logging out:", error);
     }
   };
+  
+  // Sample subscribers - replace with actual data
+  const dummySubscribers = [
+    { id: 1, username: "JohnDoe", avatar: null },
+    { id: 2, username: "JaneSmith", avatar: null },
+    { id: 3, username: "RobertJohnson", avatar: null },
+    { id: 4, username: "SarahWilliams", avatar: null },
+    { id: 5, username: "MichaelBrown", avatar: null },
+  ];
+
+ useEffect(() => {
+  const fetchSubscribers = async () => {
+    try {
+      if(cacheSubscribers.lenght > 0){
+        setSubscribers(cacheSubscribers);
+      }
+      else{
+      const response = await api.get(`/api/v1/subscriptions`);
+      console.log(response);
+      
+      if (response.data.data.channels && Array.isArray(response.data.data.channels)) {
+        setSubscribers(response.data.data.channels);
+        setCacheSubscribers(response.data.data.channels);
+      } else {
+        setSubscribers(dummySubscribers);
+      }
+    }} catch (error) {
+      // Only use dummy data in case of error
+      setSubscribers(dummySubscribers);
+      console.error("Error fetching subscribers:", error);
+    }
+  };
+  
+  fetchSubscribers();
+}, [user, api]);
 
   const menuItems = [
     { 
@@ -76,32 +116,20 @@ function Sidebar({ isVisible, toggleSidebar }) {
       path: "/likedContent",
       activeCondition: (path) => path ===  "/likedContent"
     },
-    { 
-      icon: User, 
-      label: "Profile", 
-      path: "/profile",
-      activeCondition: (path) => path === "/profile"
-    },
   ];
 
   return (
-    <div className={`fixed top-0 left-0 h-full bg-white border-r shadow-lg transition-all duration-300 ${isVisible ? 'translate-x-0' : '-translate-x-full'}`} style={{ width: '256px' }}>
-      <div className="p-4 flex flex-col h-full">
-        <div className="mb-8 flex items-center space-x-3 px-2">
-          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-            <User className="w-6 h-6 text-blue-600" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-800">
-              {user?.fullName || 'Creator'}
-            </h2>
-            <p className="text-xs text-gray-500">
-              {user?.email || 'Welcome back!'}
-            </p>
+    <div className={`fixed top-0 left-0 h-full bg-white border-r shadow-lg transition-all duration-300 flex flex-col ${isVisible ? 'translate-x-0' : '-translate-x-full'}`} style={{ width: '256px' }}>
+      <div className="p-4 flex-shrink-0">
+        <div className="mb-6 flex items-center space-x-3 px-2">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden">
           </div>
         </div>
+      </div>
 
-        <nav className="flex-1 space-y-1">
+      {/* Scrollable navigation area */}
+      <div className="flex-grow overflow-y-auto px-4">
+        <nav className="space-y-1 mb-4">
           {menuItems.map((item) => (
             <NavLink
               key={item.path}
@@ -119,14 +147,47 @@ function Sidebar({ isVisible, toggleSidebar }) {
           ))}
         </nav>
 
-        <div className="border-t pt-4">
-          <button
-            className="w-full flex items-center gap-3 p-2 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
-            onClick={() => setShowLogoutDialog(true)}
-          >
-            <LogOut className="w-5 h-5" /> Logout
-          </button>
+        {/* Separator */}
+        <div className="border-t border-gray-200 my-4"></div>
+
+        {/* Subscribers section */}
+        <div className="mb-4">
+          <h3 className="flex items-center gap-2 text-sm font-medium text-gray-500 mb-3 px-2">
+            <Users className="w-4 h-4" /> 
+            Subscribers
+          </h3>
+          <div className="space-y-2">
+            {subscribers.map((subscriber) => (
+              <div key={subscriber.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                <div className="w-7 h-7 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden"
+                onClick={() => navigate(`/c/${subscriber.username}`)}>
+                  {subscriber.avatar ? (
+                    <img 
+                      src={subscriber.avatar} 
+                      alt={`${subscriber.username}'s avatar`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <User className="w-4 h-4 text-gray-500" />
+                  )}
+                </div>
+                <span className="text-sm text-gray-700 truncate">
+                  {subscriber.username}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
+      </div>
+
+      {/* Fixed logout section */}
+      <div className="border-t border-gray-200 p-4 flex-shrink-0">
+        <button
+          className="w-full flex items-center gap-3 p-2 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+          onClick={() => setShowLogoutDialog(true)}
+        >
+          <LogOut className="w-5 h-5" /> Logout
+        </button>
       </div>
 
       {/* Toggle button */}

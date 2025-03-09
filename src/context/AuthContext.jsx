@@ -76,7 +76,8 @@ export const AuthProvider = ({ children }) => {
         id: payload._id || payload.id || payload.sub,
         username: payload.username,
         email: payload.email,
-        watchHistoryIds: watchHistoryIds
+        watchHistoryIds: watchHistoryIds,
+        avatar: payload.avatar,
       };
       
       // Additional debug logging

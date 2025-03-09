@@ -234,16 +234,14 @@ const Channel = () => {
   
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <Sidebar isVisible={isSidebarVisible} toggleSidebar={toggleSidebar} />
-      <div 
-        className={`flex flex-col flex-1 overflow-auto transition-all duration-300 ${
-          isSidebarVisible ? 'ml-64' : 'ml-0'
-        }`}
-      >
-        <Navbar
-          toggleSidebar={toggleSidebar}
-        />
+    <div className="flex h-screen w-full bg-gradient-to-br from-gray-50 to-blue-50">
+       <Sidebar isVisible={isSidebarVisible} toggleSidebar={toggleSidebar} />
+       <div 
+         className={`flex flex-col flex-1`}
+       >
+         <Navbar
+           toggleSidebar={toggleSidebar}
+         />
 
         {isLoading && (
           <div className="flex justify-center items-center mt-8">
@@ -257,8 +255,8 @@ const Channel = () => {
           </div>
         )}
 
-        {channel && (
-          <div className="max-w-4xl mx-auto mt-8 mb-8">
+{channel && (
+  <div className={`max-w-4xl mx-auto mt-8 mb-8 container px-4 py-6 overflow-auto transition-all duration-300`}>
             {/* Channel Header with Cover Image */}
             <div className="relative">
               <div className="h-48 bg-gray-300 rounded-t-lg overflow-hidden">

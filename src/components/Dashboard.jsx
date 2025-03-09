@@ -617,15 +617,15 @@ return (
   <div className="flex h-screen w-full bg-gradient-to-br from-gray-50 to-blue-50">
     <Sidebar isVisible={isSidebarVisible} toggleSidebar={toggleSidebar} />
     <div 
-      className={`flex flex-col flex-1 overflow-auto transition-all duration-300 ${
-        isSidebarVisible ? 'ml-64' : 'ml-0'
-      }`}
+      className={`flex flex-col flex-1  `}
     >
       <Navbar
         toggleSidebar={toggleSidebar}
         onDataDelete={refreshDashboardData}
       />
-      <div className="p-8 space-y-8">
+      <div className={`p-8 space-y-8 overflow-auto transition-all duration-300 ${
+        isSidebarVisible ? 'ml-64' : 'ml-0'
+      }`}>
         {/* Header with Gradient Background */}
         <div 
           className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl p-6 shadow-2xl transform transition-all hover:scale-[1.02]"

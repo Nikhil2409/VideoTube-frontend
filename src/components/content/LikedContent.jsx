@@ -136,17 +136,17 @@ function LikedContentPage() {
   }
 
   return (
-  <div className="flex h-screen w-full bg-gradient-to-br from-gray-50 to-blue-50">
-     <Sidebar isVisible={isSidebarVisible} toggleSidebar={toggleSidebar} />
-     <div 
-       className={`flex flex-col flex-1 overflow-auto transition-all duration-300 ${
-         isSidebarVisible ? 'ml-64' : 'ml-0'
-       }`}
-     >
-       <Navbar
-         toggleSidebar={toggleSidebar}
-       />
-        <div className="p-6 flex-1 overflow-auto">
+    <div className="flex h-screen w-full bg-gradient-to-br from-gray-50 to-blue-50">
+       <Sidebar isVisible={isSidebarVisible} toggleSidebar={toggleSidebar} />
+       <div 
+         className={`flex flex-col flex-1`}
+       >
+         <Navbar
+           toggleSidebar={toggleSidebar}
+         />
+               <div className={`container mx-auto px-4 py-6 max-w-6xl overflow-auto transition-all duration-300 ${
+          isSidebarVisible ? 'ml-64' : 'ml-0'
+        }`}>
           <div className="bg-white rounded-xl shadow-md p-6">
             <Tabs defaultValue="videos" value={activeTab} onValueChange={setActiveTab}>
               <div className="flex justify-between items-center mb-6">
