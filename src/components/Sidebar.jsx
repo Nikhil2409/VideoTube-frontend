@@ -11,6 +11,8 @@ import {
   Compass, 
   Heart, 
   PlayCircle,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { 
   Dialog, 
@@ -24,7 +26,7 @@ import { useAuth } from "../context/AuthContext";
 import axios from "axios";
 import { cacheUtils } from "./utils/cacheUtils";
 
-function Sidebar() {
+function Sidebar({ isVisible, toggleSidebar }) {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -83,47 +85,57 @@ function Sidebar() {
   ];
 
   return (
-    <div className="w-64 bg-white border-r shadow-lg h-screen p-4 flex flex-col overflow-y-auto">
-      <div className="mb-8 flex items-center space-x-3 px-2">
-        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-          <User className="w-6 h-6 text-blue-600" />
+    <div className={`fixed top-0 left-0 h-full bg-white border-r shadow-lg transition-all duration-300 ${isVisible ? 'translate-x-0' : '-translate-x-full'}`} style={{ width: '256px' }}>
+      <div className="p-4 flex flex-col h-full">
+        <div className="mb-8 flex items-center space-x-3 px-2">
+          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+            <User className="w-6 h-6 text-blue-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-800">
+              {user?.fullName || 'Creator'}
+            </h2>
+            <p className="text-xs text-gray-500">
+              {user?.email || 'Welcome back!'}
+            </p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-lg font-semibold text-gray-800">
-            {user?.fullName || 'Creator'}
-          </h2>
-          <p className="text-xs text-gray-500">
-            {user?.email || 'Welcome back!'}
-          </p>
-        </div>
-      </div>
 
-      <nav className="flex-1 space-y-1">
-        {menuItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) => `
-              flex items-center gap-3 p-2 rounded-lg transition-all duration-200
-              ${item.activeCondition(location.pathname) 
-                ? "bg-blue-50 text-blue-600 font-semibold" 
-                : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"}
-            `}
+        <nav className="flex-1 space-y-1">
+          {menuItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={({ isActive }) => `
+                flex items-center gap-3 p-2 rounded-lg transition-all duration-200
+                ${item.activeCondition(location.pathname) 
+                  ? "bg-blue-50 text-blue-600 font-semibold" 
+                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"}
+              `}
+            >
+              <item.icon className="w-5 h-5" />
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="border-t pt-4">
+          <button
+            className="w-full flex items-center gap-3 p-2 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+            onClick={() => setShowLogoutDialog(true)}
           >
-            <item.icon className="w-5 h-5" />
-            {item.label}
-          </NavLink>
-        ))}
-      </nav>
-
-      <div className="border-t pt-4">
-        <button
-          className="w-full flex items-center gap-3 p-2 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
-          onClick={() => setShowLogoutDialog(true)}
-        >
-          <LogOut className="w-5 h-5" /> Logout
-        </button>
+            <LogOut className="w-5 h-5" /> Logout
+          </button>
+        </div>
       </div>
+
+      {/* Toggle button */}
+      <button
+        className="absolute top-1/2 -right-3 bg-white border border-gray-200 rounded-full p-1 shadow-md"
+        onClick={toggleSidebar}
+      >
+        {isVisible ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+      </button>
 
       <Dialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
         <DialogContent className="sm:max-w-md">

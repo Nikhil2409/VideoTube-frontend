@@ -33,6 +33,11 @@ function LikedContentPage() {
   const [loading, setLoading] = useState({ videos: true, tweets: true });
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("videos");
+  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
+
+  const toggleSidebar = () => {
+    setIsSidebarVisible((prev) => !prev);
+  };
 
   const api = axios.create({
     baseURL: "http://localhost:3900",
@@ -131,10 +136,16 @@ function LikedContentPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Navbar />
+  <div className="flex h-screen w-full bg-gradient-to-br from-gray-50 to-blue-50">
+     <Sidebar isVisible={isSidebarVisible} toggleSidebar={toggleSidebar} />
+     <div 
+       className={`flex flex-col flex-1 overflow-auto transition-all duration-300 ${
+         isSidebarVisible ? 'ml-64' : 'ml-0'
+       }`}
+     >
+       <Navbar
+         toggleSidebar={toggleSidebar}
+       />
         <div className="p-6 flex-1 overflow-auto">
           <div className="bg-white rounded-xl shadow-md p-6">
             <Tabs defaultValue="videos" value={activeTab} onValueChange={setActiveTab}>

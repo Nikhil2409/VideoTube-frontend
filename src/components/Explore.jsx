@@ -27,7 +27,12 @@ function ExplorePage() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const [userCache, setUserCache] = useState({});
-
+  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
+  
+    const toggleSidebar = () => {
+      setIsSidebarVisible((prev) => !prev);
+    };
+  
   // Dummy data for testing when API calls fail
   const DUMMY_VIDEOS = [
     {
@@ -286,11 +291,16 @@ function ExplorePage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      
-      <div className="flex flex-col min-h-screen bg-gray-100 w-full">
-        <Navbar user={user} />
+   <div className="flex h-screen w-full bg-gradient-to-br from-gray-50 to-blue-50">
+      <Sidebar isVisible={isSidebarVisible} toggleSidebar={toggleSidebar} />
+      <div 
+        className={`flex flex-col flex-1 overflow-auto transition-all duration-300 ${
+          isSidebarVisible ? 'ml-64' : 'ml-0'
+        }`}
+      >
+        <Navbar
+          toggleSidebar={toggleSidebar}
+        />
         
         <div className="container mx-auto px-4 py-6 max-w-6xl">
           <div className="flex flex-col md:flex-row justify-between items-center mb-6">

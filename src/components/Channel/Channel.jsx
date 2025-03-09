@@ -6,6 +6,7 @@ import { Navbar } from "../Navbar.jsx";
 import { useAuth } from "../../context/AuthContext.jsx"
 import { set } from 'date-fns';
 import { List } from 'lucide-react';
+import { Sidebar } from "../Sidebar";
 
 // Dummy data that will be used if API calls fail
 const DUMMY_CHANNEL = {
@@ -115,6 +116,11 @@ const Channel = () => {
   const [subscribers, setSubscribers] = useState(0);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [playlists, setPlaylists] = useState([]);
+  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
+    
+  const toggleSidebar = () => {
+    setIsSidebarVisible((prev) => !prev);
+  };
   
   const api = axios.create({
     baseURL: "http://localhost:3900",
@@ -229,242 +235,257 @@ const Channel = () => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <Navbar />
+      <Sidebar isVisible={isSidebarVisible} toggleSidebar={toggleSidebar} />
+      <div 
+        className={`flex flex-col flex-1 overflow-auto transition-all duration-300 ${
+          isSidebarVisible ? 'ml-64' : 'ml-0'
+        }`}
+      >
+        <Navbar
+          toggleSidebar={toggleSidebar}
+        />
 
-      {isLoading && (
-        <div className="flex justify-center items-center mt-8">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-        </div>
-      )}
+        {isLoading && (
+          <div className="flex justify-center items-center mt-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
+        )}
 
-      {error && (
-        <div className="max-w-4xl mx-auto mt-8 p-4 bg-red-100 text-red-700 rounded-md">
-          {error}
-        </div>
-      )}
+        {error && (
+          <div className="max-w-4xl mx-auto mt-8 p-4 bg-red-100 text-red-700 rounded-md">
+            {error}
+          </div>
+        )}
 
-      {channel && (
-        <div className="max-w-4xl mx-auto mt-8">
-          {/* Channel Header with Cover Image */}
-          <div className="relative">
-            <div className="h-48 bg-gray-300 rounded-t-lg overflow-hidden">
-              {channel.coverImage ? (
-                <img 
-                  src={channel.coverImage} 
-                  alt="Cover" 
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-r from-blue-400 to-purple-500"></div>
-              )}
-            </div>
-            
-            <div className="absolute bottom-0 left-4 transform translate-y-1/2">
-              <div className="w-24 h-24 rounded-full border-4 border-white overflow-hidden bg-white">
-                {channel.avatar ? (
+        {channel && (
+          <div className="max-w-4xl mx-auto mt-8 mb-8">
+            {/* Channel Header with Cover Image */}
+            <div className="relative">
+              <div className="h-48 bg-gray-300 rounded-t-lg overflow-hidden">
+                {channel.coverImage ? (
                   <img 
-                    src={channel.avatar} 
-                    alt={channel.fullName} 
+                    src={channel.coverImage} 
+                    alt="Cover" 
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full bg-gray-300 flex items-center justify-center">
-                    <Users size={32} className="text-gray-500" />
-                  </div>
+                  <div className="w-full h-full bg-gradient-to-r from-blue-400 to-purple-500"></div>
                 )}
-              </div>
-            </div>
-          </div>
-          
-          {/* Channel Info */}
-          <div className="bg-white rounded-b-lg shadow-md p-4 pt-16">
-            <div className="flex justify-between items-start">
-              <div>
-                <h1 className="text-2xl font-bold">{channel.fullName}</h1>
-                <p className="text-gray-600">@{channel.username}</p>
-                <div className="flex items-center mt-2 space-x-4">
-                  <div className="text-sm">
-                    <span className="font-bold">{channel.subscribersCount}</span> subscribers
-                  </div>
-                  <div className="text-sm">
-                    <span className="font-bold">{channel.channelsSubscribedToCount}</span> subscriptions
-                  </div>
-                </div>
               </div>
               
-              <button 
-  onClick={handleSubscribe}
-  disabled={isSubscribing}
-  className={`px-4 py-2 rounded-md font-medium ${
-    isSubscribing ? 'bg-gray-300 text-gray-500' : 
-    isSubscribed ? 'bg-gray-200 text-gray-800 hover:bg-gray-300' : 
-    'bg-red-600 text-white hover:bg-red-700'
-  }`}
->
-  {isSubscribing ? 'Processing...' : isSubscribed ? 'Subscribed' : 'Subscribe'}
-</button>
-
-            </div>
-          </div>
-          
-          {/* Tabs */}
-          <div className="bg-white mt-4 rounded-lg shadow-md">
-            <div className="flex border-b">
-              <button 
-                onClick={() => setActiveTab('videos')} 
-                className={`flex-1 py-3 font-medium ${activeTab === 'videos' 
-                  ? 'text-blue-600 border-b-2 border-blue-600' 
-                  : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                Videos
-              </button>
-              <button 
-                onClick={() => setActiveTab('playlists')} 
-                className={`flex-1 py-3 font-medium ${activeTab === 'playlists' 
-                  ? 'text-blue-600 border-b-2 border-blue-600' 
-                  : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                Playlists
-              </button>
-              <button 
-                onClick={() => setActiveTab('tweets')} 
-                className={`flex-1 py-3 font-medium ${activeTab === 'tweets' 
-                  ? 'text-blue-600 border-b-2 border-blue-600' 
-                  : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                Tweets
-              </button>
+              <div className="absolute bottom-0 left-4 transform translate-y-1/2">
+                <div className="w-24 h-24 rounded-full border-4 border-white overflow-hidden bg-white">
+                  {channel.avatar ? (
+                    <img 
+                      src={channel.avatar} 
+                      alt={channel.fullName} 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-300 flex items-center justify-center">
+                      <Users size={32} className="text-gray-500" />
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
             
-            {/* Videos Content */}
-            {activeTab === 'videos' && (
-              <div className="p-4">
-                {videos.length === 0 ? (
-                  <p className="text-center text-gray-500 py-8">No videos found</p>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {videos.map(video => (
-                      <div key={video._id} className="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                        <div className="relative pt-[56.25%] bg-gray-200" onClick={() => navigate(`/video/${video.id}`)}>
-                          {video.thumbnail ? (
-                            <img 
-                              src={video.thumbnail} 
-                              alt={video.title} 
-                              className="absolute inset-0 w-full h-full object-cover" 
-                            />
-                          ) : (
-                            <div className="absolute inset-0 w-full h-full flex items-center justify-center">
-                              <span className="text-gray-400">No thumbnail</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="p-3">
-                          <h3 className="font-medium text-gray-900 line-clamp-2">{video.title}</h3>
-                          <p className="text-sm text-gray-500 mt-1">
-                            {video.views?.toLocaleString() || 0} views • {new Date(video.createdAt).toLocaleDateString()}
-                          </p>
-                        </div>
+            {/* Channel Info */}
+            <div className="bg-white rounded-b-lg shadow-md p-4 pt-16">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h1 className="text-2xl font-bold">{channel.fullName}</h1>
+                  <p className="text-gray-600">@{channel.username}</p>
+                  <div className="flex items-center mt-2 space-x-4">
+                    <div className="text-sm">
+                      <span className="font-bold">{channel.subscribersCount}</span> subscribers
+                    </div>
+                    <div className="text-sm">
+                      <span className="font-bold">{channel.channelsSubscribedToCount}</span> subscriptions
+                    </div>
+                  </div>
+                </div>
+                
+                <button 
+                  onClick={handleSubscribe}
+                  disabled={isSubscribing}
+                  className={`px-4 py-2 rounded-md font-medium ${
+                    isSubscribing ? 'bg-gray-300 text-gray-500' : 
+                    isSubscribed ? 'bg-gray-200 text-gray-800 hover:bg-gray-300' : 
+                    'bg-red-600 text-white hover:bg-red-700'
+                  }`}
+                >
+                  {isSubscribing ? 'Processing...' : isSubscribed ? 'Subscribed' : 'Subscribe'}
+                </button>
+              </div>
+            </div>
+            
+            {/* Tabs */}
+            <div className="bg-white mt-4 rounded-lg shadow-md">
+              <div className="flex border-b">
+                <button 
+                  onClick={() => setActiveTab('videos')} 
+                  className={`flex-1 py-3 font-medium ${activeTab === 'videos' 
+                    ? 'text-blue-600 border-b-2 border-blue-600' 
+                    : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  Videos
+                </button>
+                <button 
+                  onClick={() => setActiveTab('playlists')} 
+                  className={`flex-1 py-3 font-medium ${activeTab === 'playlists' 
+                    ? 'text-blue-600 border-b-2 border-blue-600' 
+                    : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  Playlists
+                </button>
+                <button 
+                  onClick={() => setActiveTab('tweets')} 
+                  className={`flex-1 py-3 font-medium ${activeTab === 'tweets' 
+                    ? 'text-blue-600 border-b-2 border-blue-600' 
+                    : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  Tweets
+                </button>
+              </div>
+              
+              {/* Tab Content Container with fixed exact height */}
+              <div className="h-96 overflow-y-auto">
+                {/* Videos Content */}
+                {activeTab === 'videos' && (
+                  <div className="p-4">
+                    {videos.length === 0 ? (
+                      <div className="flex justify-center items-center h-80">
+                        <p className="text-center text-gray-500">No videos found</p>
                       </div>
-                    ))}
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {videos.map(video => (
+                          <div key={video._id} className="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                            <div className="relative pt-[56.25%] bg-gray-200" onClick={() => navigate(`/video/${video.id}`)}>
+                              {video.thumbnail ? (
+                                <img 
+                                  src={video.thumbnail} 
+                                  alt={video.title} 
+                                  className="absolute inset-0 w-full h-full object-cover" 
+                                />
+                              ) : (
+                                <div className="absolute inset-0 w-full h-full flex items-center justify-center">
+                                  <span className="text-gray-400">No thumbnail</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="p-3">
+                              <h3 className="font-medium text-gray-900 line-clamp-2">{video.title}</h3>
+                              <p className="text-sm text-gray-500 mt-1">
+                                {video.views?.toLocaleString() || 0} views • {new Date(video.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Playlists Content */}
+                {activeTab === 'playlists' && (
+                  <div className="p-4">
+                    {playlists.length === 0 ? (
+                      <div className="flex justify-center items-center h-80">
+                        <p className="text-center text-gray-500">No playlists found</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {playlists.map(playlist => (
+                          <div key={playlist.id} className="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                            <div className="relative pt-[56.25%] bg-gray-200" onClick={() => navigate(`/playlist/${playlist.id}/false`)}>
+                              {playlist.user.avatar ? (
+                                <img 
+                                  src={playlist.user.avatar} 
+                                  alt={playlist.name} 
+                                  className="absolute inset-0 w-full h-full object-cover" 
+                                />
+                              ) : (
+                                <div className="absolute inset-0 w-full h-full flex items-center justify-center">
+                                  <List size={32} className="text-gray-400" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="p-3">
+                              <h3 className="font-medium text-gray-900 line-clamp-2">{playlist.name}</h3>
+                              <p className="text-sm text-gray-500 mt-1 line-clamp-2">{playlist.description}</p>
+                              <p className="text-sm text-gray-500 mt-1">
+                                {playlist.videos.length} videos
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Tweets Content */}
+                {activeTab === 'tweets' && (
+                  <div className="p-4">
+                    {tweets.length === 0 ? (
+                      <div className="flex justify-center items-center h-80">
+                        <p className="text-center text-gray-500">No tweets found</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {tweets.map(tweet => (
+                          <div 
+                            key={tweet.id} 
+                            className="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                            onClick={() => navigate(`/tweet/${tweet.id}`)}
+                          >
+                            <div className="relative pt-[56.25%] bg-gray-200" onClick={() => navigate(`/tweet/${tweet.id}`)}>
+                              {tweet.image ? (
+                                <img 
+                                  src={tweet.user.avatar} 
+                                  className="absolute inset-0 w-full h-full object-cover" 
+                                />
+                              ) : (
+                                <div className="absolute inset-0 w-full h-full flex items-center justify-center">
+                                  <span className="text-gray-400">No thumbnail</span>
+                                </div>
+                              )}
+                            </div>
+                            {/* Tweet Content */}
+                            <div className="p-3">
+                              <p className="text-gray-900 line-clamp-3">{tweet.content}</p>
+                            </div>
+                
+                            {/* Tweet Metadata */}
+                            <div className="flex justify-between items-center px-3 pb-3 text-gray-500 text-sm">
+                              <span>{new Date(tweet.createdAt).toLocaleDateString()}</span>
+                              <div className="flex space-x-4">
+                                <div className="flex items-center space-x-1 hover:text-red-500 transition-colors">
+                                  <Eye size={16} />
+                                  <span>{tweet.views || 0}</span>
+                                </div>
+                                <div className="flex items-center space-x-1 hover:text-blue-500 transition-colors">
+                                  <MessageSquare size={16} />
+                                  <span>{tweet.comments || 0}</span>
+                                </div>
+                                <div className="flex items-center space-x-1 hover:text-green-500 transition-colors">
+                                  <Share2 size={16} />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
-
-                    {/* Playlists Content */}
-                    {activeTab === 'playlists' && (
-              <div className="p-4">
-                {playlists.length === 0 ? (
-                  <p className="text-center text-gray-500 py-8">No playlists found</p>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {playlists.map(playlist => (
-                      <div key={playlist.id} className="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                        <div className="relative pt-[56.25%] bg-gray-200" onClick={() => navigate(`/playlist/${playlist.id}/false`)}>
-                          {playlist.user.avatar ? (
-                            <img 
-                              src={playlist.user.avatar} 
-                              alt={playlist.name} 
-                              className="absolute inset-0 w-full h-full object-cover" 
-                            />
-                          ) : (
-                            <div className="absolute inset-0 w-full h-full flex items-center justify-center">
-                              <List size={32} className="text-gray-400" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="p-3">
-                          <h3 className="font-medium text-gray-900 line-clamp-2">{playlist.name}</h3>
-                          <p className="text-sm text-gray-500 mt-1 line-clamp-2">{playlist.description}</p>
-                          <p className="text-sm text-gray-500 mt-1">
-                            {playlist.videos.length} videos
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            
-           {/* Tweets Content */}
-           {activeTab === 'tweets' && (
-           <div className="p-4">
-           {tweets.length === 0 ? (
-             <p className="text-center text-gray-500 py-8">No tweets found</p>
-           ) : (
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-               {tweets.map(tweet => (
-                 <div 
-                   key={tweet.id} 
-                   className="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                   onClick={() => navigate(`/tweet/${tweet.id}`)}
-                 >
-                    <div className="relative pt-[56.25%] bg-gray-200" onClick={() => navigate(`/tweet/${tweet.id}`)}>
-                                 {tweet.image ? (
-                                   <img 
-                                     src={tweet.user.avatar} 
-                                     className="absolute inset-0 w-full h-full object-cover" 
-                                   />
-                                 ) : (
-                                   <div className="absolute inset-0 w-full h-full flex items-center justify-center">
-                                     <span className="text-gray-400">No thumbnail</span>
-                                   </div>
-                                 )}
-                               </div>
-                   {/* Tweet Content */}
-                   <div className="p-3">
-                     <p className="text-gray-900 line-clamp-3">{tweet.content}</p>
-                   </div>
-       
-                   {/* Tweet Metadata */}
-                   <div className="flex justify-between items-center px-3 pb-3 text-gray-500 text-sm">
-                     <span>{new Date(tweet.createdAt).toLocaleDateString()}</span>
-                     <div className="flex space-x-4">
-                       <div className="flex items-center space-x-1 hover:text-red-500 transition-colors">
-                         <Eye size={16} />
-                         <span>{tweet.views || 0}</span>
-                       </div>
-                       <div className="flex items-center space-x-1 hover:text-blue-500 transition-colors">
-                         <MessageSquare size={16} />
-                         <span>{tweet.comments || 0}</span>
-                       </div>
-                       <div className="flex items-center space-x-1 hover:text-green-500 transition-colors">
-                         <Share2 size={16} />
-                       </div>
-                     </div>
-                   </div>
-                 </div>
-               ))}
-             </div>
-           )}
-         </div>
-       )}
-
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

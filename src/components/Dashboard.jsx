@@ -130,6 +130,12 @@ function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
   const [isWatchHistoryCleared, setIsWatchHistoryCleared] = useState(false);
+  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
+
+  const toggleSidebar = () => {
+    setIsSidebarVisible((prev) => !prev);
+  };
+
 
   // Watch History Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -607,40 +613,45 @@ const renderItemCard = (item, type, actions = []) => (
 );
 
 
-  return (
-    <div className="flex h-screen w-full bg-gradient-to-br from-gray-50 to-blue-50">
-      <Sidebar />
-      <div className="flex flex-col flex-1 overflow-auto">
-       <Navbar
+return (
+  <div className="flex h-screen w-full bg-gradient-to-br from-gray-50 to-blue-50">
+    <Sidebar isVisible={isSidebarVisible} toggleSidebar={toggleSidebar} />
+    <div 
+      className={`flex flex-col flex-1 overflow-auto transition-all duration-300 ${
+        isSidebarVisible ? 'ml-64' : 'ml-0'
+      }`}
+    >
+      <Navbar
+        toggleSidebar={toggleSidebar}
         onDataDelete={refreshDashboardData}
       />
-        <div className="p-8 space-y-8">
-          {/* Header with Gradient Background */}
-          <div 
-            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl p-6 shadow-2xl transform transition-all hover:scale-[1.02]"
-          >
-            <div className="flex justify-between items-center">
-              <div>
-                <h1 className="text-4xl font-bold mb-2 tracking-tight">
-                  Welcome, {user?.username || 'Creator'}
-                </h1>
-                <p className="text-sm opacity-80">
-                  Your creative hub for content management
-                </p>
-              </div>
-              <div className="flex space-x-3">
-                <Button
-                  onClick={handleRefresh}
-                  variant="outline"
-                  className="bg-white/20 text-white hover:bg-white/30 border-white/30 flex items-center gap-2"
-                  disabled={isLoading}
-                >
-                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                  Refresh
-                </Button>
-              </div>
+      <div className="p-8 space-y-8">
+        {/* Header with Gradient Background */}
+        <div 
+          className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl p-6 shadow-2xl transform transition-all hover:scale-[1.02]"
+        >
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-4xl font-bold mb-2 tracking-tight">
+                Welcome, {user?.username || 'Creator'}
+              </h1>
+              <p className="text-sm opacity-80">
+                Your creative hub for content management
+              </p>
+            </div>
+            <div className="flex space-x-3">
+              <Button
+                onClick={handleRefresh}
+                variant="outline"
+                className="bg-white/20 text-white hover:bg-white/30 border-white/30 flex items-center gap-2"
+                disabled={isLoading}
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
             </div>
           </div>
+        </div>
 
           {/* Tabs with Modern, Clean Design */}
           <Tabs

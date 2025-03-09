@@ -8,7 +8,8 @@ import {
   Trash2, 
   Clock,  
   ListVideo, 
-  Settings
+  Settings,
+  Menu
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { useNavigate } from "react-router-dom"
@@ -35,7 +36,7 @@ import { toast } from "./ui/use-toast"
 import axios from 'axios'
 import { cacheUtils } from "./utils/cacheUtils"
 
-function Navbar({onDataDelete}) {
+function Navbar({onDataDelete, toggleSidebar}) {
   const [searchQuery, setSearchQuery] = useState("")
   const [deleteConfirmation, setDeleteConfirmation] = useState(null)
   const {user} = useAuth(); 
@@ -114,6 +115,13 @@ function Navbar({onDataDelete}) {
 
   return (
     <nav className="bg-white shadow-md p-4 flex justify-between items-center sticky top-0 z-50">
+      <Button
+        variant="ghost"
+        className="p-2"
+        onClick={toggleSidebar} // Trigger sidebar visibility toggle
+      >
+        <Menu className="h-6 w-6 text-gray-700" />
+      </Button>
       <div className="flex items-center space-x-4">
         <Button 
           variant="outline" 
