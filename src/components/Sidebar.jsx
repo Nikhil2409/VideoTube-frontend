@@ -154,7 +154,7 @@ function Sidebar({ isVisible, toggleSidebar }) {
         <div className="mb-4">
           <h3 className="flex items-center gap-2 text-sm font-medium text-gray-500 mb-3 px-2">
             <Users className="w-4 h-4" /> 
-            Subscribers
+            Subscriptions
           </h3>
           <div className="space-y-2">
             {subscribers.map((subscriber) => (

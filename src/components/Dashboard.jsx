@@ -1009,7 +1009,7 @@ return (
         );
       })
     ) : (
-      renderEmptyState("tweets", "Create Your First Tweet", () => navigate("/create-tweet"))
+      renderEmptyState("tweets", "Create Your First Tweet", () => navigate("/tweets/create"))
     )}
     {tweets.length > 5 && (
       <Pagination 

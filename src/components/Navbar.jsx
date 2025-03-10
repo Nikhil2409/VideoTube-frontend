@@ -38,6 +38,7 @@ import { toast } from "./ui/use-toast"
 import axios from 'axios'
 import { cacheUtils } from "./utils/cacheUtils"
 import { Dialog, DialogContent, DialogFooter, DialogDescription, DialogTitle } from "./ui/dialog"
+import { ChatBubbleIcon } from "@radix-ui/react-icons"
 
 function Navbar({onDataDelete, toggleSidebar}) {
   const [searchQuery, setSearchQuery] = useState("")
@@ -204,6 +205,22 @@ function Navbar({onDataDelete, toggleSidebar}) {
     </Button>
     <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
       Create a new tweet
+      <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-800 rotate-45"></div>
+    </div>
+  </div>
+
+  <div className="relative group">
+    <Button 
+      variant="outline" 
+      size="icon" 
+      onClick={() => navigate("/chat")}
+      className="hover:bg-blue-50 rounded-full p-2 border-gray-200 shadow-sm transition-all duration-200"
+    >
+      <ChatBubbleIcon className="h-5 w-5 text-blue-600" />
+      <span className="sr-only">Chat</span>
+    </Button>
+    <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+      Chat
       <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-800 rotate-45"></div>
     </div>
   </div>

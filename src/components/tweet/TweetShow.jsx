@@ -505,7 +505,7 @@ function TweetShow() {
     
     try {
       const accessToken = user.accessToken;
-      const response = await api.post(`/api/v1/subscribes/toggle/${owner.id}`, {}, {
+      const response = await api.post(`/api/v1/subscriptions/c/${owner.id}`, {}, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       
@@ -556,7 +556,7 @@ function TweetShow() {
         <Button 
           variant="ghost" 
           className="mb-4 flex items-center text-gray-600 hover:text-gray-900"
-          onClick={goBack}
+          onClick={() => navigate("/dashboard")}
         >
           <ChevronLeft className="mr-1 h-5 w-5" />
           Back to Timeline

@@ -299,10 +299,9 @@ function ExplorePage() {
         <Navbar
           toggleSidebar={toggleSidebar}
         />
-        
-        <div className={`container mx-auto px-4 py-6 max-w-6xl overflow-auto transition-all duration-300 ${
-          isSidebarVisible ? 'ml-64' : 'ml-0'
-        }`}>
+      <div className={`p-8 space-y-8 overflow-auto transition-all duration-300 ${
+        isSidebarVisible ? 'ml-64' : 'ml-0'
+      }`}>
           <div className="flex flex-col md:flex-row justify-between items-center mb-6">
             <h1 className="text-3xl font-bold">Explore</h1>
             

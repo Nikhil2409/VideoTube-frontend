@@ -12,11 +12,9 @@ import MyContentPage from "./components/content/MyContent.jsx";
 import LikedContentPage from "./components/content/LikedContent.jsx";
 import PlaylistCreate from "./components/PlaylistCreate";
 import PlaylistView from "./components/PlaylistView";
-//import PlaylistEdit from "./components/PlaylistEdit";
-//import ChannelView from "./components/ChannelView";
+import ChatPage from "./components/chat/ChatPage.jsx";
 import TweetCreate from "./components/tweet/TweetCreate";
 import TweetShow from "./components/tweet/TweetShow.jsx";
-//import WatchHistory from "./components/WatchHistory";
 
 function App() {
   return (
@@ -45,25 +43,11 @@ function App() {
 
       <Route path="/tweets/create" element={<TweetCreate />} />
       <Route path="/tweet/:tweetId" element={<TweetShow />} />
+
+      <Route path="/chat" element={<ChatPage />} />
     </Routes>
   );
 }
 
-/*        
-          
-          <Route path="/upload" element={<VideoUpload />} />
-          <Route path="/video/:videoId" element={<VideoPlayer />} />
-          <Route path="/video/edit/:videoId" element={<VideoEdit />} />
-          
-          <Route path="/history" element={<WatchHistory />} />
-          
-        
-          <Route path="/playlist/create" element={<PlaylistCreate />} />
-
-          <Route path="/playlist/edit/:playlistId" element={<PlaylistEdit />} />
-          
-
-
-          */
 
 export default App;
