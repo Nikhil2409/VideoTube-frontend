@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import Cookies from "js-cookie";
 import { useAuth } from "../../context/AuthContext.jsx";
-import { LogOut, Pencil, LayoutDashboard } from "lucide-react";
+import { LogOut, Pencil, ArrowLeft } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,8 @@ import { Button } from "../ui/button.jsx";
 
 const Profile = () => {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [watchHistory, setWatchHistory] = useState([]);
+  
   const navigate = useNavigate();
   const { logout } = useAuth();
 
@@ -24,16 +26,16 @@ const Profile = () => {
     bio: "",
     avatar: "",
     coverImage: "",
-    watchHistory: [],
     createdAt: "",
     stats: {
-      totalLikes: "",
-      totalViews: "",
       totalVideos: "",
       totalSubscribers: "",
+      totalLikes: "",
+      totalViews: "",
+      totalTweets: "",
     },
   });
-
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -42,61 +44,34 @@ const Profile = () => {
     withCredentials: true,
   });
 
-  // Function to generate dummy watch history
-  const getDummyWatchHistory = () => {
-    return [
-      {
-        id: "1",
-        title: "Introduction to React Hooks",
-        thumbnail: "https://via.placeholder.com/150x100?text=React+Hooks",
-        watchedAt: new Date(2025, 2, 1, 14, 30).toISOString(),
-      },
-      {
-        id: "2",
-        title: "Building a REST API with Node.js",
-        thumbnail: "https://via.placeholder.com/150x100?text=Node.js+API",
-        watchedAt: new Date(2025, 2, 1, 16, 45).toISOString(),
-      },
-      {
-        id: "3",
-        title: "CSS Grid Layout Tutorial",
-        thumbnail: "https://via.placeholder.com/150x100?text=CSS+Grid",
-        watchedAt: new Date(2025, 2, 2, 9, 15).toISOString(),
-      },
-      {
-        id: "4",
-        title: "JavaScript ES6+ Features",
-        thumbnail: "https://via.placeholder.com/150x100?text=ES6+Features",
-        watchedAt: new Date(2025, 2, 2, 11, 0).toISOString(),
-      },
-    ];
-  };
-
-  // Fetch user data
+  // Unified data fetching in a single useEffect
   useEffect(() => {
-    const fetchUserData = async () => {
+    const fetchAllUserData = async () => {
       try {
         setLoading(true);
-
         const token = Cookies.get("accessToken");
-        const response = await api.get("/api/v1/users/current-user", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        
+        // Fetch user profile data
+        const userResponse = await api.get("/api/v1/users/current-user", { 
         });
-
-        const stats = await api.get("/api/v1/dashboard/stats", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        
+        const userData = userResponse.data.data;
+        
+        // Fetch user stats
+        const statsResponse = await api.get(`/api/v1/dashboard/stats/${userData._id}`, {
         });
-
-        console.log(response);
-        setUser((prevUser) => ({
-          ...prevUser,
-          ...response.data.data,
-          stats: stats.data,
-        }));
+        
+        // Update user state with profile and stats data
+        setUser({
+          ...userData,
+          stats: statsResponse.data.data,
+        });
+        
+        // Fetch watch history
+        const historyResponse = await api.get("/api/v1/users/history", {
+        });
+        setWatchHistory(historyResponse.data.data || []);
+        
       } catch (err) {
         console.error("Error fetching user data:", err);
         setError("Failed to load profile data. Please try again later.");
@@ -109,8 +84,52 @@ const Profile = () => {
       }
     };
 
-    fetchUserData();
+    fetchAllUserData();
   }, [navigate]);
+
+  // Function to determine text size class based on content length
+  const getTextSizeClass = (text, type) => {
+    if (!text) return "text-lg";
+
+    const length = text.length;
+
+    if (type === "fullName") {
+      if (length > 25) return "text-xs";
+      if (length > 20) return "text-sm";
+      if (length > 15) return "text-base";
+      return "text-xl";
+    }
+
+    if (type === "username" || type === "email") {
+      if (length > 25) return "text-xs";
+      if (length > 20) return "text-sm";
+      if (length > 15) return "text-base";
+      return "text-lg";
+    }
+
+    if (type === "bio") {
+      if (length > 200) return "text-xs";
+      if (length > 150) return "text-sm";
+      if (length > 100) return "text-base";
+      return "text-lg";
+    }
+
+    return "text-base";
+  };
+  
+  const handleLogout = async () => {
+    try {
+      const token = Cookies.get("accessToken");
+      await api.post(
+        "/api/v1/users/logout",
+        {},
+      );
+      logout();
+      navigate("/login");
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
 
   if (loading) {
     return (
@@ -155,61 +174,18 @@ const Profile = () => {
     );
   }
 
-  const watchHistory =
-    user.watchHistory?.length > 0 ? user.watchHistory : getDummyWatchHistory();
-
-  const handleLogout = async () => {
-    try {
-      const token = Cookies.get("accessToken");
-      await api.post(
-        "/api/v1/users/logout",
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          withCredentials: true,
-        }
-      );
-      logout();
-      navigate("/login");
-    } catch (error) {
-      console.error("Error logging out:", error);
-    }
-  };
-
-  // Function to determine text size class based on content length
-  const getTextSizeClass = (text, type) => {
-    if (!text) return "text-lg";
-
-    const length = text.length;
-
-    if (type === "fullName") {
-      if (length > 25) return "text-xs";
-      if (length > 20) return "text-sm";
-      if (length > 15) return "text-base";
-      return "text-xl";
-    }
-
-    if (type === "username" || type === "email") {
-      if (length > 25) return "text-xs";
-      if (length > 20) return "text-sm";
-      if (length > 15) return "text-base";
-      return "text-lg";
-    }
-
-    if (type === "bio") {
-      if (length > 200) return "text-xs";
-      if (length > 150) return "text-sm";
-      if (length > 100) return "text-base";
-      return "text-lg";
-    }
-
-    return "text-base";
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-indigo-100">
+      {/* Back Button */}
+      <div className="absolute top-4 left-4 z-10">
+        <button 
+          onClick={() => navigate(-1)} 
+          className="bg-white/80 hover:bg-white transition-colors rounded-full p-2 shadow-md flex items-center justify-center"
+        >
+          <ArrowLeft className="w-6 h-6 text-gray-700" />
+        </button>
+      </div>
+
       {/* Cover Image */}
       <div
         className="h-72 w-full bg-cover bg-center"
@@ -311,23 +287,24 @@ const Profile = () => {
                     <div
                       key={video.id}
                       className="flex gap-3 items-center bg-gradient-to-r from-gray-50 to-blue-50 p-3 rounded-lg shadow-sm hover:shadow-md transition-shadow"
+                      onClick={() => navigate(`/video/${video.videoId}`)}
+                      style={{ cursor: 'pointer' }}
                     >
-                      <div
-                        className="w-24 h-16 rounded-md bg-cover bg-center flex-shrink-0 shadow-sm"
-                        style={{
-                          backgroundImage: `url(${
-                            video.thumbnail ||
-                            "https://via.placeholder.com/150x100"
-                          })`,
-                        }}
-                      ></div>
+                      <div className="w-24 h-16 rounded-md flex-shrink-0 shadow-sm overflow-hidden">
+                        <img 
+                          src={video.video.thumbnail || "https://via.placeholder.com/150x100"}
+                          alt={video.title}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      </div>
                       <div className="overflow-hidden">
                         <h3 className="font-medium text-sm sm:text-base truncate text-gray-800">
                           {video.title}
                         </h3>
                         <p className="text-xs sm:text-sm text-gray-500 truncate">
-                          {new Date(video.watchedAt).toLocaleDateString()} at{" "}
-                          {new Date(video.watchedAt).toLocaleTimeString([], {
+                          {new Date(video.watchedAt || video.createdAt).toLocaleDateString()} at{" "}
+                          {new Date(video.watchedAt || video.createdAt).toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
@@ -360,14 +337,6 @@ const Profile = () => {
                   <Pencil className="w-4 h-4" />
                   <span>Edit Profile</span>
                 </button>
-
-                <button
-                  className="w-full px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-500 transition-colors shadow-sm hover:shadow flex items-center justify-center gap-2"
-                  onClick={() => navigate("/dashboard")}
-                >
-                  <LayoutDashboard className="w-4 h-4" />
-                  <span>Go to Dashboard</span>
-                </button>
               </div>
             </div>
 
@@ -390,26 +359,32 @@ const Profile = () => {
                     Total Subscribers
                   </span>
                   <span className="font-semibold bg-white px-3 py-1 rounded-lg text-center min-w-16 shadow-sm text-blue-700">
-                    {user.stats?.totalSubscribers || "N/A"}
+                    {user.stats?.totalSubscribers || 0}
                   </span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm">
                   <span className="text-gray-700 font-medium">Total Likes</span>
                   <span className="font-semibold bg-white px-3 py-1 rounded-lg text-center min-w-16 shadow-sm text-blue-700">
-                    {user.stats?.totalLikes || "N/A"}
+                    {user.stats?.totalLikes || 0}
                   </span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm">
                   <span className="text-gray-700 font-medium">Total Views</span>
                   <span className="font-semibold bg-white px-3 py-1 rounded-lg text-center min-w-16 shadow-sm text-blue-700">
-                    {user.stats?.totalViews || "N/A"}
+                    {user.stats?.totalViews || 0}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm">
+                  <span className="text-gray-700 font-medium">Total Tweets</span>
+                  <span className="font-semibold bg-white px-3 py-1 rounded-lg text-center min-w-16 shadow-sm text-blue-700">
+                    {user.stats?.totalTweets || 0}
                   </span>
                 </div>
               </div>
             </div>
 
             {/* Logout Button */}
-            <div className="bg-white rounded-lg shadow-lg  border border-blue-100">
+            <div className="bg-white rounded-lg shadow-lg border border-blue-100">
               <div className="space-y-3">
                 <button
                   className="flex items-center justify-center gap-2 p-3 text-red-600 font-bold rounded-lg 

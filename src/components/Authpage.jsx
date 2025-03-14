@@ -49,8 +49,10 @@ function AuthPage() {
         const loginSuccess = login(data.data.accessToken);
         
         if (loginSuccess) {
-          setMessage("Success! You are logged in.");
-          navigate("/dashboard");
+          if (loginSuccess) {
+            setMessage("Success! You are logged in.");
+            navigate("/dashboard", { state: { user: data.data } });
+          }
         } else {
           setMessage("Login failed. Please try again.");
         }
