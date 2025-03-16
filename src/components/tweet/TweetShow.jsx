@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.jsx"
 import { Navbar } from "../Navbar.jsx";
@@ -59,6 +59,7 @@ function TweetShow() {
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editedCommentContent, setEditedCommentContent] = useState("");
   const [commentsError, setCommentsError] = useState("");
+  const viewCountUpdated = useRef(false);
   
   // Format date to a relative time string
   const formatRelativeTime = (dateString) => {
@@ -297,6 +298,25 @@ function TweetShow() {
       setCommentsError("Failed to update like status");
     }
   };
+  
+  useEffect(() => {
+      const updateViewCount = async () => {
+        if (!tweetId || !tweet || viewCountUpdated.current) return;
+        
+        try {
+          const accessToken = user?.accessToken;
+          const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+          
+          await api.patch(`/api/v1/tweets/incrementViews/${tweetId}`, {}, { headers });
+          viewCountUpdated.current = true;
+        } catch (error) {
+          console.error("Error updating view count:", error);
+          // Failing to update view count is non-critical, so we don't show an error
+        }
+      };
+      
+      updateViewCount();
+    }, [tweetId, tweet, user]);
 
   // Add a new comment
   const handleAddComment = async (e) => {

@@ -2,27 +2,32 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import Cookies from "js-cookie";
+import { useAuth } from "../../context/AuthContext";
 
-const EditProfile = ({ user }) => {
+const EditProfile = () => {
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
   const accessToken = Cookies.get("accessToken");
   const [formData, setFormData] = useState({
-    fullName: user?.fullName || "",
-    email: user?.email || "",
-    username: user?.username || "",
+    fullName: "",
+    email: "",
+    username: "",
   });
 
   const api = axios.create({
     baseURL: "http://localhost:3900",
     withCredentials: true,
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    }
   });
 
   // Separate state for file uploads
   const [avatarFile, setAvatarFile] = useState(null);
   const [coverImageFile, setCoverImageFile] = useState(null);
 
-  const [avatarPreview, setAvatarPreview] = useState(user?.avatar);
-  const [coverPreview, setCoverPreview] = useState(user?.coverImage);
+  const [avatarPreview, setAvatarPreview] = useState("");
+  const [coverPreview, setCoverPreview] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -31,9 +36,10 @@ const EditProfile = ({ user }) => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [attempts, setAttempts] = useState(0);
+  const [isGoogleUser, setIsGoogleUser] = useState(false);
 
   useEffect(() => {
-    // Only clean up object URLs when component unmounts
+    // Clean up object URLs when component unmounts
     return () => {
       if (
         avatarPreview &&
@@ -52,6 +58,38 @@ const EditProfile = ({ user }) => {
     };
   }, [avatarPreview, coverPreview]);
 
+  // Fetch user data when component mounts
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!isAuthenticated() || !accessToken) return;
+      
+      try {
+        const response = await api.get("/api/v1/users/current-user");
+        const userData = response.data.data;
+        
+        // Check if user is authenticated with Google
+        setIsGoogleUser(userData.googleId ? true : false);
+        
+        setFormData({
+          fullName: userData.fullName || "",
+          email: userData.email || "",
+          username: userData.username || "",
+        });
+        
+        setAvatarPreview(userData.avatar);
+        setCoverPreview(userData.coverImage);
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        if (error.response?.status === 401) {
+          setError("Your session has expired. Please log in again.");
+          setTimeout(() => navigate("/login"), 2000);
+        }
+      }
+    };
+    
+    fetchUserData();
+  }, [isAuthenticated, accessToken, navigate]);
+
   // Update form data if user prop changes
   useEffect(() => {
     if (user) {
@@ -62,11 +100,22 @@ const EditProfile = ({ user }) => {
       });
       setAvatarPreview(user.avatar);
       setCoverPreview(user.coverImage);
+      
+      // Check if user is authenticated with Google
+      setIsGoogleUser(user.googleId ? true : false);
     }
   }, [user]);
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    
+    // If user is authenticated with Google, don't allow email changes
+    if (isGoogleUser && name === "email") {
+      setError("Email cannot be changed for Google-authenticated accounts");
+      return;
+    }
+    
+    setFormData({ ...formData, [name]: value });
   };
 
   const handleFileChange = (e) => {
@@ -103,7 +152,7 @@ const EditProfile = ({ user }) => {
 
   // Function to update avatar
   const updateAvatar = async () => {
-    if (!avatarFile) return true; // Skip if no file to update
+    if (!avatarFile) return true;
 
     try {
       const formData = new FormData();
@@ -124,7 +173,7 @@ const EditProfile = ({ user }) => {
 
   // Function to update cover image
   const updateCoverImage = async () => {
-    if (!coverImageFile) return true; // Skip if no file to update
+    if (!coverImageFile) return true;
 
     try {
       const formData = new FormData();
@@ -145,8 +194,17 @@ const EditProfile = ({ user }) => {
 
   // Function to update basic profile info
   const updateProfileInfo = async () => {
+    // For Google users, remove email from the update data
+    const updateData = { ...formData };
+    if (isGoogleUser) {
+      delete updateData.email;
+    }
+    
     try {
-      await api.patch("/api/v1/users/update-account", formData, {
+      await api.patch("/api/v1/users/update-account", updateData, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
       });
       return true;
     } catch (error) {
@@ -157,11 +215,6 @@ const EditProfile = ({ user }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!accessToken) {
-      setError("You are not logged in. Please log in to continue.");
-      return;
-    }
 
     setMessage("");
     setError("");
@@ -181,11 +234,16 @@ const EditProfile = ({ user }) => {
       }
 
       setMessage("Profile updated successfully!");
-      navigate("/profile");
+      setTimeout(() => navigate("/profile"), 2000);
     } catch (error) {
       console.error("Error updating profile:", error);
+      
+      // Handle different error types
       if (error.response?.status === 401) {
         setError("Your session has expired. Please log in again.");
+        setTimeout(() => navigate("/login"), 2000);
+      } else if (error.response?.status === 400 && error.response?.data?.message?.includes("already taken")) {
+        setError("Username or email is already taken by another user.");
       } else {
         setError(
           error.response?.data?.message ||
@@ -198,8 +256,8 @@ const EditProfile = ({ user }) => {
   };
 
   const handleChangePassword = () => {
-    if (!accessToken) {
-      setError("You are not logged in. Please log in to continue.");
+    if (isGoogleUser) {
+      setError("Password cannot be changed for Google-authenticated accounts. Please use Google to manage your password.");
       return;
     }
     setShowPasswordPopup(true);
@@ -220,6 +278,11 @@ const EditProfile = ({ user }) => {
       await api.patch(
         "/api/v1/users/change-password",
         { oldPassword, newPassword },
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
       );
       
       setShowPasswordPopup(false);
@@ -238,6 +301,34 @@ const EditProfile = ({ user }) => {
       setIsLoading(false);
     }
   };
+
+  // If not authenticated, show a message
+  if (!isAuthenticated() && !user) {
+    return (
+      <div className="edit-profile-container">
+        <style>{`
+          .edit-profile-container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+          }
+          .error-message {
+            color: red;
+            padding: 10px;
+            margin-bottom: 15px;
+            background-color: rgba(255, 0, 0, 0.1);
+            border-radius: 4px;
+          }
+        `}</style>
+        <h2>Edit Profile</h2>
+        <p className="error-message">You are not logged in. Redirecting to login page...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="edit-profile-container">
@@ -344,10 +435,30 @@ const EditProfile = ({ user }) => {
           background-color: rgba(0, 0, 0, 0.5);
           z-index: 999;
         }
+        .google-badge {
+          background-color: #f1f1f1;
+          color: #666;
+          font-size: 12px;
+          padding: 2px 6px;
+          border-radius: 4px;
+          margin-left: 8px;
+          display: inline-block;
+        }
+        .disabled-field {
+          background-color: #f5f5f5;
+          cursor: not-allowed;
+        }
       `}</style>
       <h2>Edit Profile</h2>
       {message && <p className="success-message">{message}</p>}
       {error && <p className="error-message">{error}</p>}
+      
+      {isGoogleUser && (
+        <p className="info-message" style={{ backgroundColor: "#e8f4ff", padding: "10px", borderRadius: "4px", marginBottom: "15px" }}>
+          <strong>Google Account:</strong> Some profile information is managed through your Google account.
+        </p>
+      )}
+      
       <form onSubmit={handleSubmit} encType="multipart/form-data">
         <div className="image-section">
           <div className="cover-container">
@@ -377,7 +488,10 @@ const EditProfile = ({ user }) => {
         </div>
 
         <div className="form-group">
-          <label htmlFor="email">Email</label>
+          <label htmlFor="email">
+            Email
+            {isGoogleUser && <span className="google-badge">Managed by Google</span>}
+          </label>
           <input
             type="email"
             id="email"
@@ -385,7 +499,14 @@ const EditProfile = ({ user }) => {
             value={formData.email}
             onChange={handleChange}
             required
+            className={isGoogleUser ? "disabled-field" : ""}
+            disabled={isGoogleUser}
           />
+          {isGoogleUser && (
+            <small style={{ color: "#666", display: "block", marginTop: "5px" }}>
+              Email address is linked to your Google account and cannot be changed here.
+            </small>
+          )}
         </div>
 
         <div className="form-group">
@@ -449,17 +570,18 @@ const EditProfile = ({ user }) => {
           <button
             type="button"
             style={{
-              backgroundColor: "#ffdddd",
-              color: "black",
+              backgroundColor: isGoogleUser ? "#dddddd" : "#ffdddd",
+              color: isGoogleUser ? "#999999" : "black",
               padding: "10px 15px",
               border: "none",
               borderRadius: "4px",
-              cursor: "pointer",
+              cursor: isGoogleUser ? "not-allowed" : "pointer",
               fontWeight: "bold",
               flex: 1,
               margin: "0 5px",
             }}
             onClick={handleChangePassword}
+            disabled={isGoogleUser}
           >
             Change Password
           </button>

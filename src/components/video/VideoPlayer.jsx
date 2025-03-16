@@ -522,7 +522,7 @@ function VideoPlayer() {
     };
     
     updateViewCount();
-  }, [videoId, video, user]);
+  }, [videoId,video, user]);
   
   const handleLikeToggle = async () => {
     if (!user) {
