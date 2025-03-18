@@ -241,7 +241,7 @@ function Dashboard() {
         comments: comments.data.data.comments || [],
         watchHistory: formattedWatchHistory,
         playlists: playlists.data.data || [],
-        tweets: tweets.data.tweets || []
+        tweets: tweets.data.data || []
       }));  
   
       // Update channel stats

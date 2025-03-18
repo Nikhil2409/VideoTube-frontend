@@ -117,7 +117,7 @@ const Channel = () => {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [playlists, setPlaylists] = useState([]);
   const [isSidebarVisible, setIsSidebarVisible] = useState(true);
-    
+  
   const toggleSidebar = () => {
     setIsSidebarVisible((prev) => !prev);
   };
@@ -149,23 +149,28 @@ const Channel = () => {
         console.log("videos");
         
         const tweetsResponse = await api.get(`/api/v1/tweets/user/${response.data.data.id}`);
+        console.log(tweetsResponse);
+        
+        // Extract tweet data
+        const tweetdata = tweetsResponse.data.data || tweetsResponse.data.tweets;
+        
+        // Map tweets and fetch comments for each
         const tweetsWithComments = await Promise.all(
-          tweetsResponse.data.tweets.map(async (tweet) => {
+          tweetdata.map(async (tweet) => {
             const commentsResponse = await api.get(`/api/v1/comments/tweet/${tweet.id}`);
             console.log(commentsResponse);
             const comments = commentsResponse.data.data.comments;
             
-            // Return the tweet with an added commentCount property
+            // Return the tweet with an added comments count property
             return {
               ...tweet,
-              comments: comments.length
+              comments: comments?.length || 0
             };
           })
         );
+        
         setTweets(tweetsWithComments || DUMMY_TWEETS);
-
-        console.log(tweetsResponse);
-
+        console.log(tweets);
         const playlistResponse = await api.get(`/api/v1/playlist/user/${response.data.data.id}`);
         setPlaylists(playlistResponse.data.data || DUMMY_PLAYLISTS);
 
@@ -200,29 +205,45 @@ const Channel = () => {
     } else if (username) {
       fetchChannelData();
     }
-  }, [username,subscribers]);
- 
+  },[username]);
+
   const handleSubscribe = async () => {
     if (!user) {
       navigate("/login");
       return;
     }
     
-    if (isSubscribing) return;
+    if (!owner || isSubscribing) return;
     
     setIsSubscribing(true);
     
     try {
       const accessToken = user.accessToken;
-      
       const response = await api.post(`/api/v1/subscriptions/c/${owner}`, {}, {
+        headers: { Authorization: `Bearer ${accessToken}` }
       });
       
+      // Update subscription state based on the server response
       if (response.data.success) {
-        setIsSubscribed(!isSubscribed);
-        setSubscribers(prev => isSubscribed ? prev - 1 : prev + 1);
-      } else {
-        throw new Error("Subscription update failed");
+        // The backend now tells us explicitly if we're subscribed or not
+        const newSubscriptionState = response.data.data.subscribed;
+        
+        // Update local state
+        setIsSubscribed(newSubscriptionState);
+        
+        // Update subscriber count
+        setSubscribers(prev => newSubscriptionState ? prev + 1 : Math.max(0, prev - 1));
+        
+        // Update channel object consistently
+        setChannel(prevChannel => ({
+          ...prevChannel,
+          isSubscribed: newSubscriptionState,
+          subscribersCount: newSubscriptionState ? 
+            prevChannel.subscribersCount + 1 : 
+            Math.max(0, prevChannel.subscribersCount - 1)
+        }));
+        
+        console.log(`${newSubscriptionState ? 'Subscribed' : 'Unsubscribed'} successfully`);
       }
     } catch (error) {
       console.error("Error toggling subscription:", error);
@@ -231,7 +252,6 @@ const Channel = () => {
       setIsSubscribing(false);
     }
   };
-  
 
   return (
     <div className="flex h-screen w-full bg-gradient-to-br from-gray-50 to-blue-50">
@@ -305,17 +325,16 @@ const Channel = () => {
                 </div>
                 
                 <button 
-                  onClick={handleSubscribe}
-                  disabled={isSubscribing}
-                  className={`px-4 py-2 rounded-md font-medium ${
-                    isSubscribing ? 'bg-gray-300 text-gray-500' : 
-                    isSubscribed ? 'bg-gray-200 text-gray-800 hover:bg-gray-300' : 
-                    'bg-red-600 text-white hover:bg-red-700'
-                  }`}
-                >
-                  {isSubscribing ? 'Processing...' : isSubscribed ? 'Subscribed' : 'Subscribe'}
-                </button>
-              </div>
+                    onClick={handleSubscribe}
+                    disabled={isSubscribing}
+                    className={`px-4 py-2 rounded-md font-medium ${
+                      isSubscribing ? 'bg-gray-300 text-gray-500' : 
+                      isSubscribed ? 'bg-gray-200 text-gray-800 hover:bg-gray-300' : 
+                      'bg-red-600 text-white hover:bg-red-700'
+                    }`}
+                  >
+                    {isSubscribing ? 'Processing...' : isSubscribed ? 'Subscribed' : 'Subscribe'}
+                  </button>
             </div>
             
             {/* Tabs */}
@@ -345,6 +364,7 @@ const Channel = () => {
                 >
                   Tweets
                 </button>
+                </div>
               </div>
               
               {/* Tab Content Container with fixed exact height */}

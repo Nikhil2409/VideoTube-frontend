@@ -86,7 +86,7 @@ function MyContentPage() {
     
         // Create a new array of tweets with comment counts
         const tweetsWithComments = await Promise.all(
-          response.data.tweets.map(async (tweet) => {
+          response.data.data.map(async (tweet) => {
             const commentsResponse = await api.get(`/api/v1/comments/tweet/${tweet.id}`);
             console.log(commentsResponse);
             const comments = commentsResponse.data.data.comments;

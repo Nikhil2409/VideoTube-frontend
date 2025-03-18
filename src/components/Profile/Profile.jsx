@@ -56,9 +56,10 @@ const Profile = () => {
         });
         
         const userData = userResponse.data.data;
+        console.log(userResponse);
         
         // Fetch user stats
-        const statsResponse = await api.get(`/api/v1/dashboard/stats/${userData._id}`, {
+        const statsResponse = await api.get(`/api/v1/dashboard/stats/${userData.id}`, {
         });
         
         // Update user state with profile and stats data

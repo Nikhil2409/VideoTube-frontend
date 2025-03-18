@@ -51,14 +51,14 @@ function TweetShow() {
   const [likeCount, setLikeCount] = useState(0);
   const [commentCount, setCommentCount] = useState(0);
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const [isSubscribeProcessing, setIsSubscribeProcessing] = useState(false);
-  // States for comments
+  const [subscribers, setSubscribers] = useState(0);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editedCommentContent, setEditedCommentContent] = useState("");
   const [commentsError, setCommentsError] = useState("");
+  const [isSubscribing, setIsSubscribing] = useState(false);
   const viewCountUpdated = useRef(false);
   
   // Format date to a relative time string
@@ -116,16 +116,14 @@ function TweetShow() {
       setTweet(tweetData);
       
       // Extract owner data
-      if (tweetData.user) {
-        setOwner(tweetData.user);
+      if (tweetData.owner) {
+        setOwner(tweetData.owner);
       }
-      
       // Extract engagement metrics
       setLikeCount(tweetData.likesCount || 0);
       setCommentCount(tweetData.commentsCount || 0);
-      
       setIsLiked(tweetData.isLiked || false);
-      setIsSubscribed(tweetData.isSubscribed || false);
+      setIsSubscribed(tweetData.owner.isSubscribed || false);
     } catch (error) {
       console.error("Error fetching tweet:", error);
       // Use dummy data if API fails
@@ -519,25 +517,26 @@ function TweetShow() {
       return;
     }
     
-    if (!owner?.id || isSubscribeProcessing) return;
+    if (!tweet?.owner|| isSubscribing) return;
     
-    setIsSubscribeProcessing(true);
+    setIsSubscribing(true);
     
     try {
       const accessToken = user.accessToken;
-      const response = await api.post(`/api/v1/subscriptions/c/${owner.id}`, {}, {
+      const response = await api.post(`/api/v1/subscriptions/c/${tweet.owner.id}`, {}, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       
-      // Update subscribe state based on the server response
+      // Update subscription state based on the server response
       if (response.data.success) {
         setIsSubscribed(!isSubscribed);
+        setSubscribers(prev => isSubscribed ? prev - 1 : prev + 1);
       }
     } catch (error) {
-      console.error("Error toggling subscribe:", error);
-      setError("Failed to update subscribe status");
+      console.error("Error toggling subscription:", error);
+      setError("Failed to update subscription status");
     } finally {
-      setIsSubscribeProcessing(false);
+      setIsSubscribing(false);
     }
   };
   
@@ -616,7 +615,7 @@ function TweetShow() {
                   {user && owner && user.id !== owner.id && (
                     <Button
                       onClick={handleSubscribeToggle}
-                      disabled={isSubscribeProcessing}
+                      disabled={isSubscribing}
                       size="sm"
                       className={
                         isSubscribed 
@@ -624,7 +623,7 @@ function TweetShow() {
                           : "bg-black text-white hover:bg-gray-800"
                       }
                     >
-                      {isSubscribeProcessing ? 'Processing...' : isSubscribed ? 'Subscribed' : 'Subscribe'}
+                      {isSubscribing ? 'Processing...' : isSubscribed ? 'Subscribed' : 'Subscribe'}
                     </Button>
                   )}
                 </div>

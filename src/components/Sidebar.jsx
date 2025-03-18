@@ -73,7 +73,7 @@ function Sidebar({ isVisible, toggleSidebar }) {
       }
       else{
       const response = await api.get(`/api/v1/subscriptions`);
-      console.log(response);
+      //console.log(response);
       
       if (response.data.data.channels && Array.isArray(response.data.data.channels)) {
         setSubscribers(response.data.data.channels);
