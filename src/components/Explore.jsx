@@ -179,19 +179,20 @@ function ExplorePage() {
           try {
             const response = await api.get(`/api/v1/tweets/`, { headers });
             console.log(response);
-            const tweetsData = response.data.data;
+            const tweetsData = response.data.data.tweets;
+            console.log(tweetsData);
           
               // Create a new array of tweets with comment counts
               const tweetsWithComments = await Promise.all(
                 tweetsData.map(async (tweet) => {
                   const commentsResponse = await api.get(`/api/v1/comments/tweet/${tweet.id}`);
                   console.log(commentsResponse);
-                  const comments = commentsResponse.data.data.comments;
+                  const comments = commentsResponse.data.totalComments;
                   
                   // Return the tweet with an added commentCount property
                   return {
                     ...tweet,
-                    comments: comments.length
+                    comments: comments
                   };
                 })
               );
@@ -425,8 +426,8 @@ function ExplorePage() {
             <div className="grid grid-cols-1 gap-4">
               {tweets.map((tweet) => {
                 const tweetId = tweet.id || tweet._id;
-                const ownerId = tweet.owner;
-                const tweetUser = tweet.user || (ownerId ? userCache[ownerId] : null);
+                const ownerId = tweet.owner.id;
+                const tweetUser = tweet.owner || (ownerId ? userCache[ownerId] : null);
                 
                 return (
                   <div 

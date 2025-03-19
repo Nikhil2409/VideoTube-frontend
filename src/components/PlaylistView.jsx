@@ -489,12 +489,12 @@ const PlaylistView = () => {
                           </svg>
                         </div>
                       )}
-                      <div className="mr-4 w-32 flex-shrink-0">
+                      <div className="mr-4 w-32 flex-shrink-0" 
+                      onClick={() => navigate(`/video/${video.id}`)}>
                         <img src={video.thumbnail} alt="" className="w-full rounded-md" />
                       </div>
                       <div className="flex-grow">
                         <h4 className="font-medium text-gray-900">{video.title}</h4>
-                        <p className="text-sm text-gray-600">{video.owner || "Unknown Channel"}</p>
                       </div>
                       {canEdit && ( // Only show remove button if in edit mode
                         <button 

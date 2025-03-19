@@ -101,20 +101,6 @@ function VideoPlayer() {
       return date.toLocaleDateString();
     }
   };
-  
-  const addToWatchHistory = async () => {
-    if(!videoId || !user) return;
-    
-    try{
-      const accessToken = user.accessToken;
-      
-      await api.post(`/api/v1/users/addToWatchHistory/${videoId}`, {}, { 
-        headers: { Authorization: `Bearer ${accessToken}` }
-      }); 
-    } catch(error){
-      console.error("Error adding to watch history:", error);
-    }
-  } 
 
   // Function to fetch video details
   const fetchVideoDetails = async () => {
@@ -154,9 +140,6 @@ function VideoPlayer() {
       // Check if current user has liked the video
       setIsLiked(videoData.isLiked || false);
       
-      if (user) {
-        addToWatchHistory();
-      }
     } catch (error) {
       console.error("Error fetching video:", error);
       // Use dummy data if API fails
@@ -440,7 +423,7 @@ function VideoPlayer() {
     try {
       const accessToken = user.accessToken;
       
-      const response = await api.delete(`/api/v1/comments/video/${commentId}`, {
+      const response = await api.delete(`/api/v1/comments/video/edit/${commentId}`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       
@@ -556,23 +539,43 @@ function VideoPlayer() {
       return;
     }
     
-    if (!video?.owner?.id || isSubscribing) return;
+    if (!owner || isSubscribing) return;
     
+    // Set processing flag to prevent multiple clicks
     setIsSubscribing(true);
+    
+    // Immediately update UI optimistically
+    const newSubscriptionState = !isSubscribed;
+    setIsSubscribed(newSubscriptionState);
+    
+    // Update subscriber count optimistically
+    setSubscribers(prev => newSubscriptionState ? prev + 1 : Math.max(0, prev - 1));
+    
     
     try {
       const accessToken = user.accessToken;
-      const response = await api.post(`/api/v1/subscriptions/c/${video.owner.id}`, {}, {
-        headers: { Authorization: `Bearer ${accessToken}` }
+      const response = await api.post(`/api/v1/subscriptions/c/${owner.id}`, {}, {
+        headers: { 
+          Authorization: `Bearer ${accessToken}`,
+          'Cache-Control': 'no-cache' // Prevent caching of this request
+        }
       });
       
-      // Update subscription state based on the server response
-      if (response.data.success) {
-        setIsSubscribed(!isSubscribed);
-        setSubscribers(prev => isSubscribed ? prev - 1 : prev + 1);
+      console.log(`${newSubscriptionState ? 'Subscribed' : 'Unsubscribed'} successfully`);
+      
+      // Force refetch of subscription data on next request
+      if (newSubscriptionState) {
+        // After subscribing, invalidate all subscription-related pages in the frontend cache
+        localStorage.removeItem(`subscriptions_${user.id}`);
+        sessionStorage.removeItem(`channel_${owner.id}`);
       }
     } catch (error) {
       console.error("Error toggling subscription:", error);
+      
+      // Revert UI changes on error
+      setIsSubscribed(!newSubscriptionState);
+      setSubscribers(prev => !newSubscriptionState ? prev + 1 : Math.max(0, prev - 1));
+      
       setError("Failed to update subscription status");
     } finally {
       setIsSubscribing(false);
@@ -614,7 +617,7 @@ function VideoPlayer() {
           onClick={goBack}
         >
           <ChevronLeft className="mr-1 h-5 w-5" />
-          Back to Dashboard
+          Back
         </Button>
         
         {error && (
@@ -686,7 +689,8 @@ function VideoPlayer() {
           {/* Channel Info & Subscribe */}
           <div className="flex flex-wrap items-center justify-between py-4 border-t border-b border-gray-200">
             <div className="flex items-center">
-              <div className="h-12 w-12 rounded-full bg-gray-300 overflow-hidden mr-3">
+              <div className="h-12 w-12 rounded-full bg-gray-300 overflow-hidden mr-3"
+               onClick ={() => navigate(`/c/${owner.username}`)}>
                 {owner?.avatar ? (
                   <img
                     src={owner.avatar}

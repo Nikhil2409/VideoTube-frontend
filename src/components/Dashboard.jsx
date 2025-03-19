@@ -200,6 +200,8 @@ function Dashboard() {
       const watchHistoryResponse = await api.get(`/api/v1/users/history`, {
         signal
       }).catch(() => ({ data: { data: [] } }));
+
+      console.log(watchHistoryResponse);
       
       //Fetch Comments
       const comments = await api.get(`/api/v1/comments/user/video/${userId}`, {
@@ -219,7 +221,7 @@ function Dashboard() {
       console.log(comments);
 
       // Transform watch history data to match the expected format in your UI
-      const formattedWatchHistory = watchHistoryResponse.data?.data?.map(item => ({
+      const formattedWatchHistory = watchHistoryResponse.data?.data?.results.map(item => ({
         id: item.video?.id,
         title: item.video?.title,
         thumbnail: item.video?.thumbnail,
@@ -314,10 +316,9 @@ function Dashboard() {
     try {
       const accessToken = user.accessToken;
       
-      // Call API to delete the comment
       const response = await api.delete(`/api/v1/comments/video/edit/${commentId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
       });
-      
       if (response.data.success) {
         // Remove the comment from the local state
         const updatedComments = comments.filter(comment => comment.id !== commentId);

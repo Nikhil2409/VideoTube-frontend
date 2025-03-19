@@ -592,7 +592,8 @@ function TweetShow() {
           <CardContent className="p-6">
             {/* User info */}
             <div className="flex items-start mb-4">
-              <div className="h-12 w-12 rounded-full bg-gray-300 overflow-hidden mr-3">
+              <div className="h-12 w-12 rounded-full bg-gray-300 overflow-hidden mr-3"
+              onClick ={() => navigate(`/c/${owner.username}`)}>
                 {owner?.avatar ? (
                   <img
                     src={owner.avatar}

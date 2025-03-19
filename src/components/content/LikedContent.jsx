@@ -86,7 +86,7 @@ function LikedContentPage() {
           fetchedLikedTweets.map(async (tweet) => {
             const commentsResponse = await api.get(`/api/v1/comments/tweet/${tweet.id}`);
             console.log('Comments response:', commentsResponse);
-            const comments = commentsResponse.data.data.comments;
+            const comments = commentsResponse.data.comments;
             
             // Return the tweet with an added commentCount property
             return {
@@ -268,13 +268,6 @@ function LikedContentPage() {
           {/* Tweet content */}
           <div className="mb-3">
             <p className="text-gray-800">{tweet.content}</p>
-            {tweet.image && (
-              <img 
-                src={tweet.image} 
-                alt="Tweet image" 
-                className="mt-2 rounded-lg max-h-64 object-cover"
-              />
-            )}
           </div>
           
           {/* Tweet stats */}
