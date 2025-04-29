@@ -38,7 +38,7 @@ const ChatPage = () => {
     // Only initialize socket if we have a username
     if (!username) return;
     
-    const newSocket = io('http://localhost:3900', {
+    const newSocket = io(process.env.REACT_APP_SERVER_URL, {
       withCredentials: true,
       query: {
         userId: user?._id || username, // Use user ID if available, otherwise username

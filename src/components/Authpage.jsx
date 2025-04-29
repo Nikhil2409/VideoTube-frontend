@@ -28,10 +28,10 @@ const AuthPage = () => {
       console.log("Sending auth request:", {
         endpoint: "login",
         payload,
-        url: `http://localhost:3900/api/v1/users/login`
+        url: `${process.env.REACT_APP_SERVER_URL}/api/v1/users/login`
       });
 
-      const response = await fetch(`http://localhost:3900/api/v1/users/login`, {
+      const response = await fetch(`${process.env.REACT_APP_SERVER_URL}/api/v1/users/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -78,7 +78,7 @@ const AuthPage = () => {
 
       // Send the ID token to your backend for verification and processing
       const response = await axios.post(
-        "http://localhost:3900/api/v1/users/google-auth",
+        `${process.env.REACT_APP_SERVER_URL}/api/v1/users/google-auth`,
         { token: credentialResponse.credential },
         { headers: { "Content-Type": "application/json" } }
       );

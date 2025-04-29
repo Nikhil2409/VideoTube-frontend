@@ -40,7 +40,7 @@ function LikedContentPage() {
   };
 
   const api = axios.create({
-    baseURL: "http://localhost:3900",
+    baseURL: process.env.REACT_APP_SERVER_URL || "http://localhost:3900",
     withCredentials: true,
     headers: {
       Authorization: `Bearer ${user?.accessToken}`

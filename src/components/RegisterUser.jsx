@@ -109,7 +109,7 @@ const RegisterUser = () => {
       }
 
       const response = await axios.post(
-        "http://localhost:3900/api/v1/users/register",
+        `${process.env.REACT_APP_SERVER_URL}/api/v1/users/register`,
         formDataToSend,
         {
           headers: { "Content-Type": "multipart/form-data" },
@@ -148,7 +148,7 @@ const RegisterUser = () => {
 
       // Send the ID token to your backend for verification and processing
       const response = await axios.post(
-        "http://localhost:3900/api/v1/users/google-auth",
+        `${process.env.REACT_APP_SERVER_URL}/api/v1/users/google-auth`,
         { token: credentialResponse.credential },
         { headers: { "Content-Type": "application/json" } }
       );
