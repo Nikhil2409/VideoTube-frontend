@@ -10,7 +10,8 @@ import {
   PlusCircle,
   ListVideo,
   Clock,
-  MessageSquare
+  MessageSquare,
+  User
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../ui/button";
@@ -86,7 +87,7 @@ function MyContentPage() {
     
         // Create a new array of tweets with comment counts
         const tweetsWithComments = await Promise.all(
-          response.data.tweets.map(async (tweet) => {
+          response.data.data.map(async (tweet) => {
             const commentsResponse = await api.get(`/api/v1/comments/tweet/${tweet.id}`);
             console.log(commentsResponse);
             const comments = commentsResponse.data.data.comments;
@@ -354,24 +355,33 @@ function MyContentPage() {
                       <div 
                       key={tweet.id} 
                       className="bg-white border rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all p-4"
+                      onClick={() => navigate(`/tweet/${tweet.id}`)}
                     >
+                      
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          {/* Create a flex container for image and content */}
-                          <div className="flex gap-4">
-                            {/* Image container - conditionally rendered */}
-                            {tweet.image && (
-                              <div className="flex-shrink-0 w-1/3 max-w-32"
-                              onClick={() => navigate(`/tweet/${tweet.id}`)}>
-                                <img 
-                                  src={tweet.image} 
-                                  alt="Tweet attachment" 
-                                  className="rounded-lg w-full h-auto object-cover"
+                          {/* User info header */}
+                          <div className="flex items-center gap-3 mb-3">
+                            {tweet.user ? (
+                              <div className="w-10 h-10 flex-shrink-0 rounded-full overflow-hidden">
+                                <img
+                                  src={tweet.user.avatar}
+                                  alt={tweet.user.fullName || "Creator"}
+                                  className="h-full w-full object-cover"
+                                  loading="lazy"
                                 />
                               </div>
+                            ) : (
+                              <User className="w-10 h-10 p-1 text-gray-500" />
                             )}
-                            
-                            {/* Text content container */}
+                            <div>
+                              <p className="font-medium text-gray-800">{tweet.user.fullName || "Unknown User"}</p>
+                              <p className="text-xs text-gray-500">@{tweet.user.username || "unknown"}</p>
+                            </div>
+                          </div>
+                          
+                          {/* Create a flex container for image and content */}
+                          <div className="flex gap-4">
                             <div className="flex-1">
                               <p className="text-gray-800 mb-3">{tweet.content}</p>
                             </div>

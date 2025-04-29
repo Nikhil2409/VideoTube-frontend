@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Navbar } from '../Navbar';
 import { Sidebar } from '../Sidebar';
-import { ListVideo, Play, MessageSquare, Eye, Clock } from 'lucide-react';
+import { ListVideo, Play, MessageSquare, Eye, Clock, User } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { Button } from '../ui/button';
@@ -80,13 +80,13 @@ function LikedContentPage() {
       try {
         const response = await api.get('/api/v1/likes/tweets');
         const fetchedLikedTweets = response.data.data || [];
-        console.log(response);
-
+        console.log('Liked tweets response:', response);
+    
         const tweetsWithComments = await Promise.all(
           fetchedLikedTweets.map(async (tweet) => {
             const commentsResponse = await api.get(`/api/v1/comments/tweet/${tweet.id}`);
-            console.log(commentsResponse);
-            const comments = commentsResponse.data.data.comments;
+            console.log('Comments response:', commentsResponse);
+            const comments = commentsResponse.data.comments;
             
             // Return the tweet with an added commentCount property
             return {
@@ -96,16 +96,18 @@ function LikedContentPage() {
           })
         );
         
-        const formattedTweets = tweetsWithComments.map(tweets => ({
-          id: tweets.id,
-          content: tweets.content,
-          image: tweets.image,
-          views: tweets.views || 0,
-          comments: tweets.comments || 0,
-          likedAt: new Date(tweets.likedAt || Date.now()),
-          createdAt: new Date(tweets.createdAt || Date.now()),
+        const formattedTweets = tweetsWithComments.map(tweet => ({
+          id: tweet.id,
+          content: tweet.content,
+          image: tweet.image,
+          views: tweet.views || 0,
+          comments: tweet.comments || 0,
+          likedAt: new Date(tweet.likedAt || Date.now()),
+          createdAt: new Date(tweet.createdAt || Date.now()),
+          owner: tweet.owner  // Preserve the owner information
         }));
         
+        console.log('Formatted tweets:', formattedTweets);
         setLikedTweets(formattedTweets);
         setLoading(prev => ({ ...prev, tweets: false }));
       } catch (error) {
@@ -118,6 +120,10 @@ function LikedContentPage() {
     fetchLikedVideos();
     fetchLikedTweets();
   }, [user, navigate]);
+  
+  const handleTweetClick = (tweetId) => {
+    navigate(`/tweet/${tweetId}`);
+  };
 
   const filteredVideos = likedVideos.filter(video => 
     video.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -234,51 +240,58 @@ function LikedContentPage() {
     <div className="grid grid-cols-1 gap-4">
       {filteredTweets.map((tweet) => (
         <div 
-          key={tweet.id} 
-          className="bg-white border rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all p-4"
-        >
-          <div className="flex justify-between items-start">
-            <div className="flex-1">
-              <div className="flex gap-4 mb-3">
-                {tweet.image && (
-                  <div 
-                    className="cursor-pointer w-48 h-48 flex-shrink-0" 
-                    onClick={() => navigate(`/tweet/${tweet.id}`)}
-                  >
-                    <img 
-                      src={tweet.image} 
-                      alt="Tweet attachment" 
-                      className="rounded-lg w-full h-full object-cover"
-                    />
-                  </div>
-                )}
-                <div className="flex-1">
-                  <h3 className="text-gray-800">{tweet.content}</h3>
-                </div>
+        onClick={() => handleTweetClick(tweet.id)}
+        key={tweet.id} 
+        className="bg-white border rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all p-4"
+      >
+        <div className="flex flex-col">
+          {/* User info header */}
+          <div className="flex items-center gap-3 mb-3">
+            {tweet?.owner ? (
+              <div className="w-10 h-10 flex-shrink-0 rounded-full overflow-hidden">
+                <img
+                  src={tweet.owner.avatar}
+                  alt={tweet.owner.fullName || "Creator"}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
               </div>
-
-              <div className="flex justify-between items-center text-sm text-gray-600">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1">
-                    <Eye className="w-4 h-4" />
-                    {tweet.views.toLocaleString()}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <MessageSquare className="w-4 h-4" />
-                    {tweet.comments.toLocaleString()}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-4 h-4" />
-                    {tweet.createdAt.toLocaleDateString()}
-                  </div>
-                </div>
-                <div className="text-xs text-gray-500">
-                  Liked {tweet.likedAt.toLocaleDateString()}
-                </div>
+            ) : (
+              <User className="w-10 h-10 p-1 text-gray-500" />
+            )}
+            <div>
+              <p className="font-medium text-gray-800">{tweet?.owner?.fullName || "Unknown User"}</p>
+              <p className="text-xs text-gray-500">@{tweet?.owner?.username || "unknown"}</p>
+            </div>
+          </div>
+          
+          {/* Tweet content */}
+          <div className="mb-3">
+            <p className="text-gray-800">{tweet.content}</p>
+          </div>
+          
+          {/* Tweet stats */}
+          <div className="flex justify-between items-center text-sm text-gray-600">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1">
+                <Eye className="w-4 h-4" />
+                {tweet.views.toLocaleString()}
               </div>
+              <div className="flex items-center gap-1">
+                <MessageSquare className="w-4 h-4" />
+                {tweet.comments.toLocaleString()}
+              </div>
+              <div className="flex items-center gap-1">
+                <Clock className="w-4 h-4" />
+                {tweet.createdAt.toLocaleDateString()}
+              </div>
+            </div>
+            <div className="text-xs text-gray-500">
+              Liked {tweet.likedAt.toLocaleDateString()}
             </div>
           </div>
         </div>
+    </div>
       ))}
     </div>
   )}

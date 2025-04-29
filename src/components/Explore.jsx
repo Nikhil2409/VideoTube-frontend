@@ -9,9 +9,11 @@ import {
   User,
   Calendar,
   Video,
-  MessageSquare
+  MessageSquare,
+  RefreshCw
 } from "lucide-react";
 import axios from "axios";
+import { toast } from "react-hot-toast";
 
 const api = axios.create({
   baseURL: "http://localhost:3900",
@@ -28,6 +30,7 @@ function ExplorePage() {
   const navigate = useNavigate();
   const [userCache, setUserCache] = useState({});
   const [isSidebarVisible, setIsSidebarVisible] = useState(true);
+  const [isFixingViews, setIsFixingViews] = useState(false);
   
     const toggleSidebar = () => {
       setIsSidebarVisible((prev) => !prev);
@@ -94,7 +97,7 @@ function ExplorePage() {
       owner: "user123"
     }
   ];
-
+  
   // Get user data for a content item
   const getUserForContent = async (item) => {
     if (!item) return null;
@@ -179,19 +182,20 @@ function ExplorePage() {
           try {
             const response = await api.get(`/api/v1/tweets/`, { headers });
             console.log(response);
-            const tweetsData = response.data.data;
+            const tweetsData = response.data.data.tweets;
+            console.log(tweetsData);
           
               // Create a new array of tweets with comment counts
               const tweetsWithComments = await Promise.all(
                 tweetsData.map(async (tweet) => {
                   const commentsResponse = await api.get(`/api/v1/comments/tweet/${tweet.id}`);
                   console.log(commentsResponse);
-                  const comments = commentsResponse.data.data.comments;
+                  const comments = commentsResponse.data.totalComments;
                   
                   // Return the tweet with an added commentCount property
                   return {
                     ...tweet,
-                    comments: comments.length
+                    comments: comments
                   };
                 })
               );
@@ -272,6 +276,39 @@ function ExplorePage() {
   const handleVideoClick = (videoId) => {
     navigate(`/video/${videoId}`);
   };
+  
+  const handleFixViews = async () => {
+    try {
+      setIsFixingViews(true);
+      
+      // Call the API endpoint
+      const response = await api('/api/v1/admin/fix-view-counts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // Add any authentication headers if needed
+        // For example: 'Authorization': `Bearer ${token}`
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Show success message
+        toast.success("View counts fixed successfully!");
+        
+        // Refresh the page to show updated counts
+        window.location.reload();
+      } else {
+        toast.error(data.error || "Failed to fix view counts");
+      }
+    } catch (error) {
+      console.error("Error fixing view counts:", error);
+      toast.error("An error occurred while fixing view counts");
+    } finally {
+      setIsFixingViews(false);
+    }
+  };
 
   const handleTweetClick = (tweetId) => {
     navigate(`/tweet/${tweetId}`);
@@ -291,17 +328,13 @@ function ExplorePage() {
   }
 
   return (
-   <div className="flex h-screen w-full bg-gradient-to-br from-gray-50 to-blue-50">
+    <div className="flex h-screen w-full bg-gradient-to-br from-gray-50 to-blue-50">
       <Sidebar isVisible={isSidebarVisible} toggleSidebar={toggleSidebar} />
-      <div 
-        className={`flex flex-col flex-1 `}
-      >
-        <Navbar
-          toggleSidebar={toggleSidebar}
-        />
-      <div className={`p-8 space-y-8 overflow-auto transition-all duration-300 ${
-        isSidebarVisible ? 'ml-64' : 'ml-0'
-      }`}>
+      <div className={`flex flex-col flex-1 `}>
+        <Navbar toggleSidebar={toggleSidebar} />
+        <div className={`p-8 space-y-8 overflow-auto transition-all duration-300 ${
+          isSidebarVisible ? 'ml-64' : 'ml-0'
+        }`}>
           <div className="flex flex-col md:flex-row justify-between items-center mb-6">
             <h1 className="text-3xl font-bold">Explore</h1>
             
@@ -339,94 +372,119 @@ function ExplorePage() {
           )}
           
           {contentType === "videos" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {videos.map((video) => {
-                const videoId = video.id || video._id;
-                const ownerId = video.owner;
-                const videoUser = video.user || (ownerId ? userCache[ownerId] : null);
-                
-                return (
-                  <div 
-                    key={videoId} 
-                    onClick={() => handleVideoClick(videoId)}
-                    className="cursor-pointer transition-transform hover:scale-105"
-                  >
-                    <Card className="overflow-hidden h-full flex flex-col">
-                      <div className="relative pb-[56.25%] bg-gray-200">
-                        {video.thumbnail ? (
-                          <img
-                            src={video.thumbnail}
-                            alt={video.title}
-                            className="absolute inset-0 h-full w-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="absolute inset-0 flex items-center justify-center bg-gray-300">
-                            <span className="text-gray-500">No thumbnail</span>
-                          </div>
-                        )}
-                        {video.duration !== undefined && (
-                          <div className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded">
-                            {formatDuration(video.duration)}
-                          </div>
-                        )}
-                      </div>
-                      
-                      <CardContent className="p-4 flex-grow flex flex-col">
-                        <h2 className="font-bold text-lg mb-2 line-clamp-2">
-                          {video.title}
-                        </h2>
-                        
-                        <div className="flex items-center mb-2">
-                          <div className="h-8 w-8 rounded-full bg-gray-300 overflow-hidden mr-2">
-                            {videoUser?.avatar ? (
-                              <img
-                                src={videoUser.avatar}
-                                alt={videoUser.fullName || "Creator"}
-                                className="h-full w-full object-cover"
-                                loading="lazy"
-                              />
-                            ) : (
-                              <User className="h-full w-full p-1 text-gray-500" />
-                            )}
-                          </div>
-                          <span className="text-sm text-gray-700">
-                            {videoUser?.username || "Unknown Creator"}
-                          </span>
-                        </div>
-                        
-                        <div className="mt-auto">
-                          <div className="flex flex-wrap items-center text-xs text-gray-500 space-x-3">
-                            <div className="flex items-center">
-                              <Eye className="mr-1 h-3 w-3" />
-                              <span>{video.views?.toLocaleString() || 0} views</span>
-                            </div>
-                            <div className="flex items-center">
-                              <Calendar className="mr-1 h-3 w-3" />
-                              <span>{formatDate(video.createdAt)}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                );
-              })}
+            <>
+              {/* Fix Views Button - Only visible when video tab is active */}
+              <div className="mb-4 flex justify-end">
+              <button 
+                onClick={handleFixViews} 
+                disabled={isFixingViews}
+                className={`bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md flex items-center ${isFixingViews ? 'opacity-70 cursor-not-allowed' : ''}`}
+              >
+                {isFixingViews ? (
+                  <>
+                    <div className="animate-spin mr-2">
+                      <RefreshCw className="h-4 w-4" />
+                    </div>
+                    Fixing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Fix Views
+                  </>
+                )}
+              </button>
+              </div>
               
-              {videos.length === 0 && !error && (
-                <div className="col-span-full text-center py-12 text-gray-500">
-                  <p className="text-xl">No videos available</p>
-                </div>
-              )}
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {videos.map((video) => {
+                  const videoId = video.id || video._id;
+                  const ownerId = video.owner;
+                  const videoUser = video.user || (ownerId ? userCache[ownerId] : null);
+                  
+                  return (
+                    <div 
+                      key={videoId} 
+                      onClick={() => handleVideoClick(videoId)}
+                      className="cursor-pointer transition-transform hover:scale-105"
+                    >
+                      <Card className="overflow-hidden h-full flex flex-col">
+                        <div className="relative pb-[56.25%] bg-gray-200">
+                          {video.thumbnail ? (
+                            <img
+                              src={video.thumbnail}
+                              alt={video.title}
+                              className="absolute inset-0 h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center bg-gray-300">
+                              <span className="text-gray-500">No thumbnail</span>
+                            </div>
+                          )}
+                          {video.duration !== undefined && (
+                            <div className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded">
+                              {formatDuration(video.duration)}
+                            </div>
+                          )}
+                        </div>
+                        
+                        <CardContent className="p-4 flex-grow flex flex-col">
+                          <h2 className="font-bold text-lg mb-2 line-clamp-2">
+                            {video.title}
+                          </h2>
+                          
+                          <div className="flex items-center mb-2">
+                            <div className="h-8 w-8 rounded-full bg-gray-300 overflow-hidden mr-2">
+                              {videoUser?.avatar ? (
+                                <img
+                                  src={videoUser.avatar}
+                                  alt={videoUser.fullName || "Creator"}
+                                  className="h-full w-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <User className="h-full w-full p-1 text-gray-500" />
+                              )}
+                            </div>
+                            <span className="text-sm text-gray-700">
+                              {videoUser?.username || "Unknown Creator"}
+                            </span>
+                          </div>
+                          
+                          <div className="mt-auto">
+                            <div className="flex flex-wrap items-center text-xs text-gray-500 space-x-3">
+                              <div className="flex items-center">
+                                <Eye className="mr-1 h-3 w-3" />
+                                <span>{video.views?.toLocaleString() || 0} views</span>
+                              </div>
+                              <div className="flex items-center">
+                                <Calendar className="mr-1 h-3 w-3" />
+                                <span>{formatDate(video.createdAt)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  );
+                })}
+                
+                {videos.length === 0 && !error && (
+                  <div className="col-span-full text-center py-12 text-gray-500">
+                    <p className="text-xl">No videos available</p>
+                  </div>
+                )}
+              </div>
+            </>
           )}
           
           {contentType === "tweets" && (
             <div className="grid grid-cols-1 gap-4">
               {tweets.map((tweet) => {
                 const tweetId = tweet.id || tweet._id;
-                const ownerId = tweet.owner;
-                const tweetUser = tweet.user || (ownerId ? userCache[ownerId] : null);
+                const ownerId = tweet.owner.id;
+                const tweetUser = tweet.owner || (ownerId ? userCache[ownerId] : null);
                 
                 return (
                   <div 

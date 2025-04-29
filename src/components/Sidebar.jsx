@@ -73,11 +73,10 @@ function Sidebar({ isVisible, toggleSidebar }) {
       }
       else{
       const response = await api.get(`/api/v1/subscriptions`);
-      console.log(response);
-      
-      if (response.data.data.channels && Array.isArray(response.data.data.channels)) {
-        setSubscribers(response.data.data.channels);
-        setCacheSubscribers(response.data.data.channels);
+
+      if (response.data.data.users && Array.isArray(response.data.data.users)) {
+        setSubscribers(response.data.data.users);
+        setCacheSubscribers(response.data.data.users);
       } else {
         setSubscribers(dummySubscribers);
       }

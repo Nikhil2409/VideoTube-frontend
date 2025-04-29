@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Users, Heart, MessageSquare, Share2, Eye } from 'lucide-react';
+import { Users, Heart, MessageSquare, Share2, Eye, User, Clock } from 'lucide-react';
 import { Navbar } from "../Navbar.jsx";
 import { useAuth } from "../../context/AuthContext.jsx"
 import { set } from 'date-fns';
@@ -117,7 +117,7 @@ const Channel = () => {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [playlists, setPlaylists] = useState([]);
   const [isSidebarVisible, setIsSidebarVisible] = useState(true);
-    
+  
   const toggleSidebar = () => {
     setIsSidebarVisible((prev) => !prev);
   };
@@ -149,23 +149,29 @@ const Channel = () => {
         console.log("videos");
         
         const tweetsResponse = await api.get(`/api/v1/tweets/user/${response.data.data.id}`);
+        //console.log(tweetsResponse);
+        
+        // Extract tweet data
+        const tweetdata = tweetsResponse.data.data;
+        //console.log(tweetsResponse);
+        
+        // Map tweets and fetch comments for each
         const tweetsWithComments = await Promise.all(
-          tweetsResponse.data.tweets.map(async (tweet) => {
+          tweetdata.map(async (tweet) => {
             const commentsResponse = await api.get(`/api/v1/comments/tweet/${tweet.id}`);
             console.log(commentsResponse);
-            const comments = commentsResponse.data.data.comments;
+            const comments = commentsResponse.data.comments;
             
-            // Return the tweet with an added commentCount property
+            // Return the tweet with an added comments count property
             return {
               ...tweet,
-              comments: comments.length
+              comments: comments?.length || 0
             };
           })
         );
+        
         setTweets(tweetsWithComments || DUMMY_TWEETS);
-
-        console.log(tweetsResponse);
-
+        console.log(tweets);
         const playlistResponse = await api.get(`/api/v1/playlist/user/${response.data.data.id}`);
         setPlaylists(playlistResponse.data.data || DUMMY_PLAYLISTS);
 
@@ -200,38 +206,71 @@ const Channel = () => {
     } else if (username) {
       fetchChannelData();
     }
-  }, [username,subscribers]);
- 
+  },[username]);
+
   const handleSubscribe = async () => {
     if (!user) {
       navigate("/login");
       return;
     }
     
-    if (isSubscribing) return;
+    if (!owner || isSubscribing) return;
     
+    // Set processing flag to prevent multiple clicks
     setIsSubscribing(true);
+    
+    // Immediately update UI optimistically
+    const newSubscriptionState = !isSubscribed;
+    setIsSubscribed(newSubscriptionState);
+    
+    // Update subscriber count optimistically
+    setSubscribers(prev => newSubscriptionState ? prev + 1 : Math.max(0, prev - 1));
+    
+    // Update channel object optimistically
+    setChannel(prevChannel => ({
+      ...prevChannel,
+      isSubscribed: newSubscriptionState,
+      subscribersCount: newSubscriptionState ? 
+        prevChannel.subscribersCount + 1 : 
+        Math.max(0, prevChannel.subscribersCount - 1)
+    }));
     
     try {
       const accessToken = user.accessToken;
-      
       const response = await api.post(`/api/v1/subscriptions/c/${owner}`, {}, {
+        headers: { 
+          Authorization: `Bearer ${accessToken}`,
+          'Cache-Control': 'no-cache' // Prevent caching of this request
+        }
       });
       
-      if (response.data.success) {
-        setIsSubscribed(!isSubscribed);
-        setSubscribers(prev => isSubscribed ? prev - 1 : prev + 1);
-      } else {
-        throw new Error("Subscription update failed");
+      console.log(`${newSubscriptionState ? 'Subscribed' : 'Unsubscribed'} successfully`);
+      
+      // Force refetch of subscription data on next request
+      if (newSubscriptionState) {
+        // After subscribing, invalidate all subscription-related pages in the frontend cache
+        localStorage.removeItem(`subscriptions_${user.id}`);
+        sessionStorage.removeItem(`channel_${owner}`);
       }
     } catch (error) {
       console.error("Error toggling subscription:", error);
+      
+      // Revert UI changes on error
+      setIsSubscribed(!newSubscriptionState);
+      setSubscribers(prev => !newSubscriptionState ? prev + 1 : Math.max(0, prev - 1));
+      setChannel(prevChannel => ({
+        ...prevChannel,
+        isSubscribed: !newSubscriptionState,
+        subscribersCount: !newSubscriptionState ? 
+          prevChannel.subscribersCount + 1 : 
+          Math.max(0, prevChannel.subscribersCount - 1)
+      }));
+      
       setError("Failed to update subscription status");
     } finally {
       setIsSubscribing(false);
     }
   };
-  
 
   return (
     <div className="flex h-screen w-full bg-gradient-to-br from-gray-50 to-blue-50">
@@ -305,17 +344,16 @@ const Channel = () => {
                 </div>
                 
                 <button 
-                  onClick={handleSubscribe}
-                  disabled={isSubscribing}
-                  className={`px-4 py-2 rounded-md font-medium ${
-                    isSubscribing ? 'bg-gray-300 text-gray-500' : 
-                    isSubscribed ? 'bg-gray-200 text-gray-800 hover:bg-gray-300' : 
-                    'bg-red-600 text-white hover:bg-red-700'
-                  }`}
-                >
-                  {isSubscribing ? 'Processing...' : isSubscribed ? 'Subscribed' : 'Subscribe'}
-                </button>
-              </div>
+                    onClick={handleSubscribe}
+                    disabled={isSubscribing}
+                    className={`px-4 py-2 rounded-md font-medium ${
+                      isSubscribing ? 'bg-gray-300 text-gray-500' : 
+                      isSubscribed ? 'bg-gray-200 text-gray-800 hover:bg-gray-300' : 
+                      'bg-red-600 text-white hover:bg-red-700'
+                    }`}
+                  >
+                    {isSubscribing ? 'Processing...' : isSubscribed ? 'Subscribed' : 'Subscribe'}
+                  </button>
             </div>
             
             {/* Tabs */}
@@ -345,6 +383,7 @@ const Channel = () => {
                 >
                   Tweets
                 </button>
+                </div>
               </div>
               
               {/* Tab Content Container with fixed exact height */}
@@ -426,59 +465,69 @@ const Channel = () => {
 
                 {/* Tweets Content */}
                 {activeTab === 'tweets' && (
-                  <div className="p-4">
-                    {tweets.length === 0 ? (
-                      <div className="flex justify-center items-center h-80">
-                        <p className="text-center text-gray-500">No tweets found</p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {tweets.map(tweet => (
-                          <div 
-                            key={tweet.id} 
-                            className="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                            onClick={() => navigate(`/tweet/${tweet.id}`)}
-                          >
-                            <div className="relative pt-[56.25%] bg-gray-200" onClick={() => navigate(`/tweet/${tweet.id}`)}>
-                              {tweet.image ? (
-                                <img 
-                                  src={tweet.user.avatar} 
-                                  className="absolute inset-0 w-full h-full object-cover" 
-                                />
-                              ) : (
-                                <div className="absolute inset-0 w-full h-full flex items-center justify-center">
-                                  <span className="text-gray-400">No thumbnail</span>
-                                </div>
-                              )}
-                            </div>
-                            {/* Tweet Content */}
-                            <div className="p-3">
-                              <p className="text-gray-900 line-clamp-3">{tweet.content}</p>
-                            </div>
-                
-                            {/* Tweet Metadata */}
-                            <div className="flex justify-between items-center px-3 pb-3 text-gray-500 text-sm">
-                              <span>{new Date(tweet.createdAt).toLocaleDateString()}</span>
-                              <div className="flex space-x-4">
-                                <div className="flex items-center space-x-1 hover:text-red-500 transition-colors">
-                                  <Eye size={16} />
-                                  <span>{tweet.views || 0}</span>
-                                </div>
-                                <div className="flex items-center space-x-1 hover:text-blue-500 transition-colors">
-                                  <MessageSquare size={16} />
-                                  <span>{tweet.comments || 0}</span>
-                                </div>
-                                <div className="flex items-center space-x-1 hover:text-green-500 transition-colors">
-                                  <Share2 size={16} />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                 <div className="p-4">
+                 {tweets.length === 0 ? (
+                   <div className="flex justify-center items-center h-80">
+                     <p className="text-center text-gray-500">No tweets found</p>
+                   </div>
+                 ) : (
+                   <div className="grid grid-cols-1 gap-4">
+                     {tweets.map(tweet => (
+                       <div 
+                         key={tweet.id} 
+                         className="bg-white border rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all p-4 cursor-pointer"
+                         onClick={() => navigate(`/tweet/${tweet.id}`)}
+                       >
+                         <div className="flex flex-col">
+                           {/* User info header */}
+                           <div className="flex items-center gap-3 mb-3">
+                             {tweet?.owner ? (
+                               <div className="w-10 h-10 flex-shrink-0 rounded-full overflow-hidden">
+                                 <img
+                                   src={tweet.owner.avatar}
+                                   alt={tweet.owner.fullName || "Creator"}
+                                   className="h-full w-full object-cover"
+                                   loading="lazy"
+                                 />
+                               </div>
+                             ) : (
+                               <User className="w-10 h-10 p-1 text-gray-500" />
+                             )}
+                             <div>
+                               <p className="font-medium text-gray-800">{tweet?.user?.fullName || channel.fullName}</p>
+                               <p className="text-xs text-gray-500">@{tweet?.user?.username || channel.username}</p>
+                             </div>
+                           </div>
+                           
+                           {/* Tweet content */}
+                           <div className="mb-3">
+                             <p className="text-gray-800">{tweet.content}</p>
+                           </div>
+                           
+                           {/* Tweet stats */}
+                           <div className="flex justify-between items-center text-sm text-gray-600">
+                             <div className="flex items-center gap-4">
+                               <div className="flex items-center gap-1">
+                                 <Eye className="w-4 h-4" />
+                                 {tweet.views?.toLocaleString() || 0}
+                               </div>
+                               <div className="flex items-center gap-1">
+                                 <MessageSquare className="w-4 h-4" />
+                                 {tweet.comments?.toLocaleString() || 0}
+                               </div>
+                               <div className="flex items-center gap-1">
+                                 <Clock className="w-4 h-4" />
+                                 {new Date(tweet.createdAt).toLocaleDateString()}
+                               </div>
+                             </div>
+                           </div>
+                         </div>
+                       </div>
+                      ))}
+                    </div>
+                  )}
+                 </div>
+              )}
               </div>
             </div>
           </div>

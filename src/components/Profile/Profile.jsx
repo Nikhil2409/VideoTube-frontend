@@ -56,9 +56,10 @@ const Profile = () => {
         });
         
         const userData = userResponse.data.data;
+        console.log(userResponse);
         
         // Fetch user stats
-        const statsResponse = await api.get(`/api/v1/dashboard/stats/${userData._id}`, {
+        const statsResponse = await api.get(`/api/v1/dashboard/stats/${userData.id}`, {
         });
         
         // Update user state with profile and stats data
@@ -70,7 +71,8 @@ const Profile = () => {
         // Fetch watch history
         const historyResponse = await api.get("/api/v1/users/history", {
         });
-        setWatchHistory(historyResponse.data.data || []);
+        //console.log("history response"  + historyResponse.data.data.results);
+        setWatchHistory(historyResponse.data.data.results || []);
         
       } catch (err) {
         console.error("Error fetching user data:", err);

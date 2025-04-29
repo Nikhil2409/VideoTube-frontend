@@ -78,22 +78,13 @@ const PlaylistView = () => {
     }
   }, [playlistId, navigate, accessToken]);
 
-  // Get videos that are not in the playlist already
-  const getAvailableVideosNotInPlaylist = () => {
-    if (!playlist || !playlist.videos) return availableVideos;
-    
-    // Filter out videos that are already in the playlist
-    return availableVideos.filter(video => {
-      return !playlist.videos.some(playlistVideo => playlistVideo.id === video.id);
-    });
-  };
 
   const handleSavePlaylist = async () => {
     if (!editedName) {
       setError('Playlist name cannot be empty');
       return;
     }
-
+  
     try {
       const updatedPlaylistData = {
         name: editedName,
@@ -101,13 +92,12 @@ const PlaylistView = () => {
       };
       
       // Send update to API using PATCH
-      await api.patch(`/api/v1/playlist/${playlistId}`, updatedPlaylistData, {
-      });
+      await api.patch(`/api/v1/playlist/${playlistId}`, updatedPlaylistData, {});
       
       // Fetch fresh data from API to ensure consistency
-      const response = await api.get(`/api/v1/playlist/${playlistId}`, {
-      });
+      const response = await api.get(`/api/v1/playlist/${playlistId}`, {});
       
+      // Update the full playlist data rather than just parts of it
       const updatedPlaylist = response.data.data;
       
       setPlaylist(updatedPlaylist);
@@ -163,16 +153,15 @@ const PlaylistView = () => {
     if (playlist.videos && playlist.videos.some(v => v.id === video.id)) {
       return;
     }
-
+  
     try {
       // Send request to API using the correct route
-      await api.patch(`/api/v1/playlist/add/${video.id}/${playlistId}`, {}, {
-      });
+      await api.patch(`/api/v1/playlist/add/${video.id}/${playlistId}`, {}, {});
       
       // Fetch fresh data after modification
-      const response = await api.get(`/api/v1/playlist/${playlistId}`, {
-      });
+      const response = await api.get(`/api/v1/playlist/${playlistId}`, {});
       
+      // Update the full playlist data
       const updatedPlaylist = response.data.data;
       
       // Update state
@@ -500,12 +489,12 @@ const PlaylistView = () => {
                           </svg>
                         </div>
                       )}
-                      <div className="mr-4 w-32 flex-shrink-0">
+                      <div className="mr-4 w-32 flex-shrink-0" 
+                      onClick={() => navigate(`/video/${video.id}`)}>
                         <img src={video.thumbnail} alt="" className="w-full rounded-md" />
                       </div>
                       <div className="flex-grow">
                         <h4 className="font-medium text-gray-900">{video.title}</h4>
-                        <p className="text-sm text-gray-600">{video.owner || "Unknown Channel"}</p>
                       </div>
                       {canEdit && ( // Only show remove button if in edit mode
                         <button 
