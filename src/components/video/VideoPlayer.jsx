@@ -27,7 +27,7 @@ import {
 } from "../ui/dropdown-menu";
 
 const api = axios.create({
-  baseURL: "http://localhost:3900",
+  baseURL: process.env.REACT_APP_SERVER_URL,
   withCredentials: true,
 });
 
