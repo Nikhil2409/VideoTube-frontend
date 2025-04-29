@@ -559,6 +559,7 @@ const renderItemCard = (item, type, actions = []) => (
       </h3>
       
       {/* Metadata based on type */}
+      
       <div className="text-xs text-gray-500 space-y-1">
         {type === 'video' && (
           <>

@@ -523,7 +523,7 @@ function VideoPlayer() {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       
-      // No need to refetch everything, we've already updated the UI
+      
     } catch (error) {
       console.error("Error toggling like:", error);
       // Revert optimistic update on error

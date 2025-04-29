@@ -71,7 +71,8 @@ const Profile = () => {
         // Fetch watch history
         const historyResponse = await api.get("/api/v1/users/history", {
         });
-        setWatchHistory(historyResponse.data.data || []);
+        //console.log("history response"  + historyResponse.data.data.results);
+        setWatchHistory(historyResponse.data.data.results || []);
         
       } catch (err) {
         console.error("Error fetching user data:", err);
