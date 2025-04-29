@@ -1,118 +1,104 @@
-import { createContext, useContext, useState, useEffect } from "react";
-import Cookies from 'js-cookie';
-import { cacheUtils } from "../components/utils/cacheUtils"
+// AuthContext.js - Improved version with consistent auth handling
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import api from './api-client'; 
 
-const AuthContext = createContext();
+// Create Auth Context
+const AuthContext = createContext(null);
 
-export const useAuth = () => {
-  return useContext(AuthContext);
-};
+// Custom hook to use the auth context
+export const useAuth = () => useContext(AuthContext);
 
+// Provider component
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Check for existing token on initial load
+  // Initialize auth state on component mount
   useEffect(() => {
-    const checkAuth = async () => {
+    const initializeAuth = async () => {
       try {
-        const token = Cookies.get("accessToken");
+        // Check if we have a token
+        const token = localStorage.getItem('accessToken');
         
-        if (token) {
-          // Parse the JWT token to get user info (without verification)
-          const base64Url = token.split('.')[1];
-          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-          const payload = JSON.parse(window.atob(base64));
-          
-          // Explicitly log the payload to see its structure
-          console.log("JWT Payload:", payload);
-  
-          setUser({
-            accessToken: token,
-            id: payload._id || payload.id || payload.sub, 
-            username: payload.username,
-            email: payload.email,
-          });
+        if (!token) {
+          setLoading(false);
+          return;
+        }
+        
+        // Validate token by fetching current user
+        const response = await api.get('/api/v1/users/current-user');
+        
+        if (response.data?.data) {
+          setUser(response.data.data);
+          setIsAuthenticated(true);
         }
       } catch (error) {
-        console.error("Auth initialization error:", error);
-        Cookies.remove("accessToken");
+        console.error('Auth initialization error:', error);
+        
+        // Clear invalid auth data
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('userId');
       } finally {
         setLoading(false);
       }
     };
-
-    checkAuth();
+    
+    initializeAuth();
   }, []);
 
-  // Login function - store token and set user state
-  const login = (token) => {
+  // Login function - stores token and user data
+  const login = (token, userData) => {
+    if (!token) {
+      console.error('Login failed: No token provided');
+      return false;
+    }
+    
     try {
-      Cookies.set("accessToken", token, { 
-        expires: 7, 
-        secure: window.location.protocol === "https:", 
-        sameSite: "Lax"
-      });
+      // Store token in localStorage
+      localStorage.setItem('accessToken', token);
       
-      // Parse the JWT token to get user info
-      const base64Url = token.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const payload = JSON.parse(window.atob(base64));
+      // If we have user data, use it directly
+      if (userData) {
+        setUser(userData);
+        if (userData.id) {
+          localStorage.setItem('userId', userData.id);
+        }
+      }
       
-      // Explicitly log the payload to see its structure
-      console.log("Login Payload:", payload);
-
-      // Attempt to extract watchHistoryIds with multiple fallback methods
-      const watchHistoryIds = 
-        payload.watchHistoryIds || 
-        payload.watchHistory || 
-        payload.watchHistoryId || 
-        payload.watchHistoryids || 
-        payload.watchhistoryIds || 
-        [];
-
-      const userData = {
-        accessToken: token,
-        id: payload._id || payload.id || payload.sub,
-        username: payload.username,
-        email: payload.email,
-        watchHistoryIds: watchHistoryIds,
-        avatar: payload.avatar,
-      };
-      
-      // Additional debug logging
-      console.log("Login Extracted Watch History IDs:", watchHistoryIds);
-      
-      setUser(userData);
+      // Set auth state
+      setIsAuthenticated(true);
       return true;
     } catch (error) {
-      console.error("Login error:", error);
+      console.error('Login error:', error);
       return false;
     }
   };
 
-  // Logout function - remove token and clear user state
-  const logout = () => {
-    if (user) {
-      cacheUtils.clearUserCache(user.id);
+  // Logout function - clears token and user data
+  const logout = async () => {
+    try {
+      // Call logout API
+      await api.post('/api/v1/users/logout');
+    } catch (error) {
+      console.error('Logout API error:', error);
+      // Continue with local logout even if API call fails
+    } finally {
+      // Clear all auth data
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('userId');
+      setUser(null);
+      setIsAuthenticated(false);
     }
-    Cookies.remove("accessToken");
-    setUser(null);
-    localStorage.clear();
-    sessionStorage.clear();
   };
 
-  // Check if user is authenticated
-  const isAuthenticated = () => {
-    return !!user;
-  };
-
+  // Auth context value
   const value = {
     user,
-    login,
-    logout,
     isAuthenticated,
     loading,
+    login,
+    logout
   };
 
   return (
@@ -121,3 +107,5 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
+
+export default AuthContext;

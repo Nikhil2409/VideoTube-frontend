@@ -20,39 +20,37 @@ const AuthPage = () => {
       setIsLoading(true);
       setMessage('');
       
-      const payload = {
-        username,
-        password
-      };
+      const payload = { username, password };
       
       console.log("Sending auth request:", {
         endpoint: "login",
-        payload,
+        payload: { username, password: "********" },
         url: `${process.env.REACT_APP_SERVER_URL}/api/v1/users/login`
       });
 
-      const response = await fetch(`${process.env.REACT_APP_SERVER_URL}/api/v1/users/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        credentials: "include" // Important for cookies
-      });
+      // Use axios instead of fetch for consistent handling
+      const response = await axios.post(
+        `${process.env.REACT_APP_SERVER_URL}/api/v1/users/login`,
+        payload,
+        { 
+          headers: { "Content-Type": "application/json" },
+          withCredentials: true  // Important for cookies
+        }
+      );
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Authentication failed");
-      }
+      console.log("Login response:", response.data);
       
-      const data = await response.json();
-      console.log("Response Data:", data);
-      
-      if (data && data.data && data.data.accessToken) {
-        // Call login function from AuthContext
-        const loginSuccess = login(data.data.accessToken);
+      if (response.data && response.data.data && response.data.data.accessToken) {
+        // Store token in localStorage for non-cookie auth
+        localStorage.setItem('accessToken', response.data.data.accessToken);
+        localStorage.setItem('userId', response.data.data.user.id);
+        
+        // Also pass the token and user data to context
+        const loginSuccess = login(response.data.data.accessToken, response.data.data.user);
         
         if (loginSuccess) {
           setMessage("Success! You are logged in.");
-          navigate("/dashboard", { state: { user: data.data } });
+          navigate("/dashboard", { state: { user: response.data.data } });
         } else {
           setMessage("Login failed. Please try again.");
         }
@@ -60,8 +58,19 @@ const AuthPage = () => {
         setMessage("Login successful but token was not received.");
       }
     } catch (error) {
-      console.error("Error details:", error);
-      setMessage(error.message || "Server error. Please try again.");
+      console.error("Login error details:", error);
+      
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        setMessage(error.response.data?.message || "Authentication failed");
+      } else if (error.request) {
+        // The request was made but no response was received
+        setMessage("No response from server. Please try again later.");
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        setMessage(error.message || "Server error. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -72,20 +81,26 @@ const AuthPage = () => {
       setIsLoading(true);
       setMessage('');
       
-      // Decode the credential to get user info (optional, your backend will also verify this)
+      // Decode the credential to get user info
       const decoded = jwtDecode(credentialResponse.credential);
       console.log("Decoded Google credential:", decoded);
 
-      // Send the ID token to your backend for verification and processing
       const response = await axios.post(
         `${process.env.REACT_APP_SERVER_URL}/api/v1/users/google-auth`,
         { token: credentialResponse.credential },
-        { headers: { "Content-Type": "application/json" } }
+        { 
+          headers: { "Content-Type": "application/json" },
+          withCredentials: true
+        }
       );
 
       if (response.data && response.data.data && response.data.data.accessToken) {
-        // Call login function from AuthContext
-        const loginSuccess = login(response.data.data.accessToken);
+        // Store token in localStorage
+        localStorage.setItem('accessToken', response.data.data.accessToken);
+        localStorage.setItem('userId', response.data.data.user.id);
+        
+        // Pass token and user data to context
+        const loginSuccess = login(response.data.data.accessToken, response.data.data.user);
         
         if (loginSuccess) {
           setMessage("Success! You are logged in with Google.");
@@ -99,7 +114,7 @@ const AuthPage = () => {
     } catch (error) {
       console.error("Google auth error:", error);
       if (error.response) {
-        setMessage(error.response.data.message || "Google authentication failed.");
+        setMessage(error.response.data?.message || "Google authentication failed.");
       } else {
         setMessage("An error occurred with Google authentication. Please try again.");
       }
