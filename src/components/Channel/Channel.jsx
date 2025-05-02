@@ -1,15 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { Users, Heart, MessageSquare, Share2, Eye, User, Clock } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import axios from "axios";
+import {
+  Users,
+  Heart,
+  MessageSquare,
+  Share2,
+  Eye,
+  User,
+  Clock,
+} from "lucide-react";
 import { Navbar } from "../Navbar.jsx";
-import { useAuth } from "../../context/AuthContext.jsx"
-import { set } from 'date-fns';
-import { List } from 'lucide-react';
+import { useAuth } from "../../context/AuthContext.jsx";
+import { set } from "date-fns";
+import { List } from "lucide-react";
 import { Sidebar } from "../Sidebar";
-import { useSubscribe } from "../../hooks/useSubscribe"; 
+import { useSubscribe } from "../../hooks/useSubscribe";
 import SubscribeButton from "../ui/subscribeButton.jsx";
-
 
 // Dummy data that will be used if API calls fail (unchanged)
 const DUMMY_CHANNEL = {
@@ -20,7 +27,7 @@ const DUMMY_CHANNEL = {
   coverImage: "https://images.unsplash.com/photo-1594732832278-abd644401426",
   subscribersCount: 5420,
   channelsSubscribedToCount: 28,
-  isSubscribed: false
+  isSubscribed: false,
 };
 
 const DUMMY_VIDEOS = [
@@ -29,53 +36,56 @@ const DUMMY_VIDEOS = [
     title: "How to Build a React App in 10 Minutes",
     thumbnail: "https://images.unsplash.com/photo-1587620962725-abab7fe55159",
     views: 1204,
-    createdAt: "2024-02-15T12:00:00Z"
+    createdAt: "2024-02-15T12:00:00Z",
   },
   {
     _id: "vid2",
     title: "MongoDB for Beginners: Complete Tutorial",
     thumbnail: "https://images.unsplash.com/photo-1555066931-4365d14bab8c",
     views: 3782,
-    createdAt: "2024-02-10T14:30:00Z"
+    createdAt: "2024-02-10T14:30:00Z",
   },
   {
     _id: "vid3",
     title: "Advanced JavaScript Patterns You Should Know",
     thumbnail: "https://images.unsplash.com/photo-1579403124614-197f69d8187b",
     views: 2159,
-    createdAt: "2024-02-05T09:15:00Z"
+    createdAt: "2024-02-05T09:15:00Z",
   },
   {
     _id: "vid4",
     title: "Creating Responsive Layouts with Tailwind CSS",
     thumbnail: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4",
     views: 958,
-    createdAt: "2024-01-28T16:45:00Z"
-  }
+    createdAt: "2024-01-28T16:45:00Z",
+  },
 ];
 
 const DUMMY_TWEETS = [
   {
     _id: "tweet1",
-    content: "Just launched my new course on building APIs with Node.js and Express! Check it out on my channel 🚀",
+    content:
+      "Just launched my new course on building APIs with Node.js and Express! Check it out on my channel 🚀",
     likes: 42,
     comments: 7,
-    createdAt: "2024-02-18T10:30:00Z"
+    createdAt: "2024-02-18T10:30:00Z",
   },
   {
     _id: "tweet2",
-    content: "What tech stack are you currently learning? I'm diving deeper into Next.js and really enjoying it so far!",
+    content:
+      "What tech stack are you currently learning? I'm diving deeper into Next.js and really enjoying it so far!",
     likes: 28,
     comments: 15,
-    createdAt: "2024-02-15T15:20:00Z"
+    createdAt: "2024-02-15T15:20:00Z",
   },
   {
     _id: "tweet3",
-    content: "Working on a new video about performance optimization in React applications. Any specific topics you'd like me to cover?",
+    content:
+      "Working on a new video about performance optimization in React applications. Any specific topics you'd like me to cover?",
     likes: 35,
     comments: 22,
-    createdAt: "2024-02-12T09:10:00Z"
-  }
+    createdAt: "2024-02-12T09:10:00Z",
+  },
 ];
 
 const DUMMY_PLAYLISTS = [
@@ -87,41 +97,43 @@ const DUMMY_PLAYLISTS = [
     videos: [
       {
         _id: "vid1",
-        title: "How to Build a React App in 10 Minutes", 
-        thumbnail: "https://images.unsplash.com/photo-1587620962725-abab7fe55159"
+        title: "How to Build a React App in 10 Minutes",
+        thumbnail:
+          "https://images.unsplash.com/photo-1587620962725-abab7fe55159",
       },
       {
         _id: "vid2",
         title: "React Hooks Crash Course",
-        thumbnail: "https://images.unsplash.com/photo-1555066931-4365d14bab8c"
+        thumbnail: "https://images.unsplash.com/photo-1555066931-4365d14bab8c",
       },
       {
         _id: "vid3",
         title: "Advanced React Patterns and Techniques",
-        thumbnail: "https://images.unsplash.com/photo-1579403124614-197f69d8187b"
-      }
-    ]
+        thumbnail:
+          "https://images.unsplash.com/photo-1579403124614-197f69d8187b",
+      },
+    ],
   },
 ];
 
 const Channel = () => {
   const { username } = useParams();
   const navigate = useNavigate();
-  const {user} = useAuth();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [owner, setOwner] = useState(null);
   const [channel, setChannel] = useState(null);
   const [videos, setVideos] = useState([]);
   const [tweets, setTweets] = useState([]);
-  const [activeTab, setActiveTab] = useState('videos');
-  const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState("videos");
+  const [error, setError] = useState("");
   const [playlists, setPlaylists] = useState([]);
   const [isSidebarVisible, setIsSidebarVisible] = useState(true);
-  
+
   const toggleSidebar = () => {
     setIsSidebarVisible((prev) => !prev);
   };
-  
+
   const api = axios.create({
     baseURL: process.env.REACT_APP_SERVER_URL || "http://localhost:3900",
     withCredentials: true,
@@ -130,8 +142,8 @@ const Channel = () => {
   useEffect(() => {
     const fetchChannelData = async () => {
       setIsLoading(true);
-      setError('');
-      
+      setError("");
+
       try {
         // Fetch channel profile
         const response = await api.get(`/api/v1/users/c/${username}`);
@@ -141,50 +153,61 @@ const Channel = () => {
         setOwner(response.data.data.id);
         const accessToken = username.accessToken;
         // Fetch videos for this channel
-        const videoResponse = await api.get(`/api/v1/videos/user/${username}`,{
-        });
+        const videoResponse = await api.get(
+          `/api/v1/videos/user/${username}`,
+          {}
+        );
         setVideos(videoResponse.data.videos || DUMMY_VIDEOS);
         console.log("videos");
-        
-        const tweetsResponse = await api.get(`/api/v1/tweets/user/${response.data.data.id}`);
+
+        const tweetsResponse = await api.get(
+          `/api/v1/tweets/user/${response.data.data.id}`
+        );
         //console.log(tweetsResponse);
-        
+
         // Extract tweet data
         const tweetdata = tweetsResponse.data.data;
         //console.log(tweetsResponse);
-        
+
         // Map tweets and fetch comments for each
         const tweetsWithComments = await Promise.all(
           tweetdata.map(async (tweet) => {
-            const commentsResponse = await api.get(`/api/v1/comments/tweet/${tweet.id}`);
+            const commentsResponse = await api.get(
+              `/api/v1/comments/tweet/${tweet.id}`
+            );
             console.log(commentsResponse);
             const comments = commentsResponse.data.comments;
-            
+
             // Return the tweet with an added comments count property
             return {
               ...tweet,
-              comments: comments?.length || 0
+              comments: comments?.length || 0,
             };
           })
         );
-        
+
         setTweets(tweetsWithComments || DUMMY_TWEETS);
         console.log(tweets);
-        const playlistResponse = await api.get(`/api/v1/playlist/user/${response.data.data.id}`);
+        const playlistResponse = await api.get(
+          `/api/v1/playlist/user/${response.data.data.id}`
+        );
         setPlaylists(playlistResponse.data.data || DUMMY_PLAYLISTS);
 
         console.log(playlistResponse);
       } catch (error) {
         console.error("API error:", error);
-        
+
         // Use dummy data when API fails
         setChannel(DUMMY_CHANNEL);
         setVideos(DUMMY_VIDEOS);
         setTweets(DUMMY_TWEETS);
         setPlaylists(DUMMY_PLAYLISTS);
-        
+
         // Still show the error for debugging
-        setError("Using dummy data: " + (error.response?.data?.message || 'Failed to fetch channel'));
+        setError(
+          "Using dummy data: " +
+            (error.response?.data?.message || "Failed to fetch channel")
+        );
       } finally {
         setIsLoading(false);
       }
@@ -192,7 +215,7 @@ const Channel = () => {
 
     // Skip API calls altogether and use dummy data directly for testing
     const useDummyData = false; // Set to false when you want to try the real API
-    
+
     if (useDummyData) {
       setTimeout(() => {
         setChannel(DUMMY_CHANNEL);
@@ -204,29 +227,21 @@ const Channel = () => {
     } else if (username) {
       fetchChannelData();
     }
-  },[username]);
+  }, [username]);
 
   // Use the subscribe hook to get shared subscription state and handlers
-  const { 
-    isSubscribed, 
-    subscribersCount, 
-    isSubscribing, 
-    handleSubscribe 
-  } = useSubscribe(
-    owner ? { id: owner } : null,
-    channel?.subscribersCount,
-    channel?.isSubscribed
-  );
+  const { isSubscribed, subscribersCount, isSubscribing, handleSubscribe } =
+    useSubscribe(
+      owner ? { id: owner } : null,
+      channel?.subscribersCount,
+      channel?.isSubscribed
+    );
 
   return (
     <div className="flex h-screen w-full bg-gradient-to-br from-gray-50 to-blue-50">
-       <Sidebar isVisible={isSidebarVisible} toggleSidebar={toggleSidebar} />
-       <div 
-         className={`flex flex-col flex-1`}
-       >
-         <Navbar
-           toggleSidebar={toggleSidebar}
-         />
+      <Sidebar isVisible={isSidebarVisible} toggleSidebar={toggleSidebar} />
+      <div className={`flex flex-col flex-1`}>
+        <Navbar toggleSidebar={toggleSidebar} />
 
         {isLoading && (
           <div className="flex justify-center items-center mt-8">
@@ -240,28 +255,30 @@ const Channel = () => {
           </div>
         )}
 
-{channel && (
-  <div className={`max-w-4xl mx-auto mt-8 mb-8 container px-4 py-6 overflow-auto transition-all duration-300`}>
+        {channel && (
+          <div
+            className={`max-w-4xl mx-auto mt-8 mb-8 container px-4 py-6 overflow-auto transition-all duration-300`}
+          >
             {/* Channel Header with Cover Image */}
             <div className="relative">
               <div className="h-48 bg-gray-300 rounded-t-lg overflow-hidden">
                 {channel.coverImage ? (
-                  <img 
-                    src={channel.coverImage} 
-                    alt="Cover" 
+                  <img
+                    src={channel.coverImage}
+                    alt="Cover"
                     className="w-full h-full object-cover"
                   />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-r from-blue-400 to-purple-500"></div>
                 )}
               </div>
-              
+
               <div className="absolute bottom-0 left-4 transform translate-y-1/2">
                 <div className="w-24 h-24 rounded-full border-4 border-white overflow-hidden bg-white">
                   {channel.avatar ? (
-                    <img 
-                      src={channel.avatar} 
-                      alt={channel.fullName} 
+                    <img
+                      src={channel.avatar}
+                      alt={channel.fullName}
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -272,7 +289,7 @@ const Channel = () => {
                 </div>
               </div>
             </div>
-            
+
             {/* Channel Info */}
             <div className="bg-white rounded-b-lg shadow-md p-4 pt-16">
               <div className="flex justify-between items-start">
@@ -281,80 +298,103 @@ const Channel = () => {
                   <p className="text-gray-600">@{channel.username}</p>
                   <div className="flex items-center mt-2 space-x-4">
                     <div className="text-sm">
-                      <span className="font-bold">{subscribersCount}</span> subscribers
+                      <span className="font-bold">{subscribersCount}</span>{" "}
+                      subscribers
                     </div>
                     <div className="text-sm">
-                      <span className="font-bold">{channel.channelsSubscribedToCount}</span> subscriptions
+                      <span className="font-bold">
+                        {channel.channelsSubscribedToCount}
+                      </span>{" "}
+                      subscriptions
                     </div>
                   </div>
                 </div>
-                <SubscribeButton 
-      isSubscribed={isSubscribed} 
-      isSubscribing={isSubscribing} 
-      onClick={handleSubscribe} 
-    />
-            </div>
-            
-            {/* Tabs */}
-            <div className="bg-white mt-4 rounded-lg shadow-md">
-              <div className="flex border-b">
-                <button 
-                  onClick={() => setActiveTab('videos')} 
-                  className={`flex-1 py-3 font-medium ${activeTab === 'videos' 
-                    ? 'text-blue-600 border-b-2 border-blue-600' 
-                    : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                  Videos
-                </button>
-                <button 
-                  onClick={() => setActiveTab('playlists')} 
-                  className={`flex-1 py-3 font-medium ${activeTab === 'playlists' 
-                    ? 'text-blue-600 border-b-2 border-blue-600' 
-                    : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                  Playlists
-                </button>
-                <button 
-                  onClick={() => setActiveTab('tweets')} 
-                  className={`flex-1 py-3 font-medium ${activeTab === 'tweets' 
-                    ? 'text-blue-600 border-b-2 border-blue-600' 
-                    : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                  Tweets
-                </button>
+                <SubscribeButton
+                  isSubscribed={isSubscribed}
+                  isSubscribing={isSubscribing}
+                  onClick={handleSubscribe}
+                />
+              </div>
+
+              {/* Tabs */}
+              <div className="bg-white mt-4 rounded-lg shadow-md">
+                <div className="flex border-b">
+                  <button
+                    onClick={() => setActiveTab("videos")}
+                    className={`flex-1 py-3 font-medium ${
+                      activeTab === "videos"
+                        ? "text-blue-600 border-b-2 border-blue-600"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Videos
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("playlists")}
+                    className={`flex-1 py-3 font-medium ${
+                      activeTab === "playlists"
+                        ? "text-blue-600 border-b-2 border-blue-600"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Playlists
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("tweets")}
+                    className={`flex-1 py-3 font-medium ${
+                      activeTab === "tweets"
+                        ? "text-blue-600 border-b-2 border-blue-600"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Tweets
+                  </button>
                 </div>
               </div>
-              
+
               {/* Tab Content Container with fixed exact height */}
               <div className="h-96 overflow-y-auto">
                 {/* Videos Content */}
-                {activeTab === 'videos' && (
+                {activeTab === "videos" && (
                   <div className="p-4">
                     {videos.length === 0 ? (
                       <div className="flex justify-center items-center h-80">
-                        <p className="text-center text-gray-500">No videos found</p>
+                        <p className="text-center text-gray-500">
+                          No videos found
+                        </p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {videos.map(video => (
-                          <div key={video._id} className="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                            <div className="relative pt-[56.25%] bg-gray-200" onClick={() => navigate(`/video/${video.id}`)}>
+                        {videos.map((video) => (
+                          <div
+                            key={video._id}
+                            className="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                          >
+                            <div
+                              className="relative pt-[56.25%] bg-gray-200"
+                              onClick={() => navigate(`/video/${video.id}`)}
+                            >
                               {video.thumbnail ? (
-                                <img 
-                                  src={video.thumbnail} 
-                                  alt={video.title} 
-                                  className="absolute inset-0 w-full h-full object-cover" 
+                                <img
+                                  src={video.thumbnail}
+                                  alt={video.title}
+                                  className="absolute inset-0 w-full h-full object-cover"
                                 />
                               ) : (
                                 <div className="absolute inset-0 w-full h-full flex items-center justify-center">
-                                  <span className="text-gray-400">No thumbnail</span>
+                                  <span className="text-gray-400">
+                                    No thumbnail
+                                  </span>
                                 </div>
                               )}
                             </div>
                             <div className="p-3">
-                              <h3 className="font-medium text-gray-900 line-clamp-2">{video.title}</h3>
+                              <h3 className="font-medium text-gray-900 line-clamp-2">
+                                {video.title}
+                              </h3>
                               <p className="text-sm text-gray-500 mt-1">
-                                {video.views?.toLocaleString() || 0} views • {new Date(video.createdAt).toLocaleDateString()}
+                                {video.views?.toLocaleString() || 0} views •{" "}
+                                {new Date(video.createdAt).toLocaleDateString()}
                               </p>
                             </div>
                           </div>
@@ -365,22 +405,32 @@ const Channel = () => {
                 )}
 
                 {/* Playlists Content */}
-                {activeTab === 'playlists' && (
+                {activeTab === "playlists" && (
                   <div className="p-4">
                     {playlists.length === 0 ? (
                       <div className="flex justify-center items-center h-80">
-                        <p className="text-center text-gray-500">No playlists found</p>
+                        <p className="text-center text-gray-500">
+                          No playlists found
+                        </p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {playlists.map(playlist => (
-                          <div key={playlist.id} className="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                            <div className="relative pt-[56.25%] bg-gray-200" onClick={() => navigate(`/playlist/${playlist.id}/false`)}>
+                        {playlists.map((playlist) => (
+                          <div
+                            key={playlist.id}
+                            className="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                          >
+                            <div
+                              className="relative pt-[56.25%] bg-gray-200"
+                              onClick={() =>
+                                navigate(`/playlist/${playlist.id}/false`)
+                              }
+                            >
                               {playlist.user.avatar ? (
-                                <img 
-                                  src={playlist.user.avatar} 
-                                  alt={playlist.name} 
-                                  className="absolute inset-0 w-full h-full object-cover" 
+                                <img
+                                  src={playlist.user.avatar}
+                                  alt={playlist.name}
+                                  className="absolute inset-0 w-full h-full object-cover"
                                 />
                               ) : (
                                 <div className="absolute inset-0 w-full h-full flex items-center justify-center">
@@ -389,8 +439,12 @@ const Channel = () => {
                               )}
                             </div>
                             <div className="p-3">
-                              <h3 className="font-medium text-gray-900 line-clamp-2">{playlist.name}</h3>
-                              <p className="text-sm text-gray-500 mt-1 line-clamp-2">{playlist.description}</p>
+                              <h3 className="font-medium text-gray-900 line-clamp-2">
+                                {playlist.name}
+                              </h3>
+                              <p className="text-sm text-gray-500 mt-1 line-clamp-2">
+                                {playlist.description}
+                              </p>
                               <p className="text-sm text-gray-500 mt-1">
                                 {playlist.videos.length} videos
                               </p>
@@ -403,70 +457,78 @@ const Channel = () => {
                 )}
 
                 {/* Tweets Content */}
-                {activeTab === 'tweets' && (
-                 <div className="p-4">
-                 {tweets.length === 0 ? (
-                   <div className="flex justify-center items-center h-80">
-                     <p className="text-center text-gray-500">No tweets found</p>
-                   </div>
-                 ) : (
-                   <div className="grid grid-cols-1 gap-4">
-                     {tweets.map(tweet => (
-                       <div 
-                         key={tweet.id} 
-                         className="bg-white border rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all p-4 cursor-pointer"
-                         onClick={() => navigate(`/tweet/${tweet.id}`)}
-                       >
-                         <div className="flex flex-col">
-                           {/* User info header */}
-                           <div className="flex items-center gap-3 mb-3">
-                             {tweet?.owner ? (
-                               <div className="w-10 h-10 flex-shrink-0 rounded-full overflow-hidden">
-                                 <img
-                                   src={tweet.owner.avatar}
-                                   alt={tweet.owner.fullName || "Creator"}
-                                   className="h-full w-full object-cover"
-                                   loading="lazy"
-                                 />
-                               </div>
-                             ) : (
-                               <User className="w-10 h-10 p-1 text-gray-500" />
-                             )}
-                             <div>
-                               <p className="font-medium text-gray-800">{tweet?.user?.fullName || channel.fullName}</p>
-                               <p className="text-xs text-gray-500">@{tweet?.user?.username || channel.username}</p>
-                             </div>
-                           </div>
-                           
-                           {/* Tweet content */}
-                           <div className="mb-3">
-                             <p className="text-gray-800">{tweet.content}</p>
-                           </div>
-                           
-                           {/* Tweet stats */}
-                           <div className="flex justify-between items-center text-sm text-gray-600">
-                             <div className="flex items-center gap-4">
-                               <div className="flex items-center gap-1">
-                                 <Eye className="w-4 h-4" />
-                                 {tweet.views?.toLocaleString() || 0}
-                               </div>
-                               <div className="flex items-center gap-1">
-                                 <MessageSquare className="w-4 h-4" />
-                                 {tweet.comments?.toLocaleString() || 0}
-                               </div>
-                               <div className="flex items-center gap-1">
-                                 <Clock className="w-4 h-4" />
-                                 {new Date(tweet.createdAt).toLocaleDateString()}
-                               </div>
-                             </div>
-                           </div>
-                         </div>
-                       </div>
-                      ))}
-                    </div>
-                  )}
-                 </div>
-              )}
+                {activeTab === "tweets" && (
+                  <div className="p-4">
+                    {tweets.length === 0 ? (
+                      <div className="flex justify-center items-center h-80">
+                        <p className="text-center text-gray-500">
+                          No tweets found
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-4">
+                        {tweets.map((tweet) => (
+                          <div
+                            key={tweet.id}
+                            className="bg-white border rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all p-4 cursor-pointer"
+                            onClick={() => navigate(`/tweet/${tweet.id}`)}
+                          >
+                            <div className="flex flex-col">
+                              {/* User info header */}
+                              <div className="flex items-center gap-3 mb-3">
+                                {tweet?.owner ? (
+                                  <div className="w-10 h-10 flex-shrink-0 rounded-full overflow-hidden">
+                                    <img
+                                      src={tweet.owner.avatar}
+                                      alt={tweet.owner.fullName || "Creator"}
+                                      className="h-full w-full object-cover"
+                                      loading="lazy"
+                                    />
+                                  </div>
+                                ) : (
+                                  <User className="w-10 h-10 p-1 text-gray-500" />
+                                )}
+                                <div>
+                                  <p className="font-medium text-gray-800">
+                                    {tweet?.user?.fullName || channel.fullName}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    @{tweet?.user?.username || channel.username}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Tweet content */}
+                              <div className="mb-3">
+                                <p className="text-gray-800">{tweet.content}</p>
+                              </div>
+
+                              {/* Tweet stats */}
+                              <div className="flex justify-between items-center text-sm text-gray-600">
+                                <div className="flex items-center gap-4">
+                                  <div className="flex items-center gap-1">
+                                    <Eye className="w-4 h-4" />
+                                    {tweet.views?.toLocaleString() || 0}
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <MessageSquare className="w-4 h-4" />
+                                    {tweet.comments?.toLocaleString() || 0}
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Clock className="w-4 h-4" />
+                                    {new Date(
+                                      tweet.createdAt
+                                    ).toLocaleDateString()}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
