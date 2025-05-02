@@ -46,7 +46,6 @@ function Navbar({onDataDelete, toggleSidebar}) {
   const {user, logout} = useAuth(); 
   const navigate = useNavigate();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  console.log(user);
   const handleSearch = useCallback((e) => {
     e.preventDefault()
     const trimmedQuery = searchQuery.trim()

@@ -7,8 +7,11 @@ import { useAuth } from "../../context/AuthContext.jsx"
 import { set } from 'date-fns';
 import { List } from 'lucide-react';
 import { Sidebar } from "../Sidebar";
+import { useSubscribe } from "../../hooks/useSubscribe"; 
+import SubscribeButton from "../ui/subscribeButton.jsx";
 
-// Dummy data that will be used if API calls fail
+
+// Dummy data that will be used if API calls fail (unchanged)
 const DUMMY_CHANNEL = {
   _id: "user123",
   username: "techcreator",
@@ -112,9 +115,6 @@ const Channel = () => {
   const [tweets, setTweets] = useState([]);
   const [activeTab, setActiveTab] = useState('videos');
   const [error, setError] = useState('');
-  const [isSubscribing, setIsSubscribing] = useState(false);
-  const [subscribers, setSubscribers] = useState(0);
-  const [isSubscribed, setIsSubscribed] = useState(false);
   const [playlists, setPlaylists] = useState([]);
   const [isSidebarVisible, setIsSidebarVisible] = useState(true);
   
@@ -138,8 +138,6 @@ const Channel = () => {
         setChannel(response.data.data);
         console.log("channel");
         console.log(response);
-        setIsSubscribed(response.data.data.isSubscribed);
-        setSubscribers(response.data.data.subscribersCount);
         setOwner(response.data.data.id);
         const accessToken = username.accessToken;
         // Fetch videos for this channel
@@ -208,69 +206,17 @@ const Channel = () => {
     }
   },[username]);
 
-  const handleSubscribe = async () => {
-    if (!user) {
-      navigate("/login");
-      return;
-    }
-    
-    if (!owner || isSubscribing) return;
-    
-    // Set processing flag to prevent multiple clicks
-    setIsSubscribing(true);
-    
-    // Immediately update UI optimistically
-    const newSubscriptionState = !isSubscribed;
-    setIsSubscribed(newSubscriptionState);
-    
-    // Update subscriber count optimistically
-    setSubscribers(prev => newSubscriptionState ? prev + 1 : Math.max(0, prev - 1));
-    
-    // Update channel object optimistically
-    setChannel(prevChannel => ({
-      ...prevChannel,
-      isSubscribed: newSubscriptionState,
-      subscribersCount: newSubscriptionState ? 
-        prevChannel.subscribersCount + 1 : 
-        Math.max(0, prevChannel.subscribersCount - 1)
-    }));
-    
-    try {
-      const accessToken = user.accessToken;
-      const response = await api.post(`/api/v1/subscriptions/c/${owner}`, {}, {
-        headers: { 
-          Authorization: `Bearer ${accessToken}`,
-          'Cache-Control': 'no-cache' // Prevent caching of this request
-        }
-      });
-      
-      console.log(`${newSubscriptionState ? 'Subscribed' : 'Unsubscribed'} successfully`);
-      
-      // Force refetch of subscription data on next request
-      if (newSubscriptionState) {
-        // After subscribing, invalidate all subscription-related pages in the frontend cache
-        localStorage.removeItem(`subscriptions_${user.id}`);
-        sessionStorage.removeItem(`channel_${owner}`);
-      }
-    } catch (error) {
-      console.error("Error toggling subscription:", error);
-      
-      // Revert UI changes on error
-      setIsSubscribed(!newSubscriptionState);
-      setSubscribers(prev => !newSubscriptionState ? prev + 1 : Math.max(0, prev - 1));
-      setChannel(prevChannel => ({
-        ...prevChannel,
-        isSubscribed: !newSubscriptionState,
-        subscribersCount: !newSubscriptionState ? 
-          prevChannel.subscribersCount + 1 : 
-          Math.max(0, prevChannel.subscribersCount - 1)
-      }));
-      
-      setError("Failed to update subscription status");
-    } finally {
-      setIsSubscribing(false);
-    }
-  };
+  // Use the subscribe hook to get shared subscription state and handlers
+  const { 
+    isSubscribed, 
+    subscribersCount, 
+    isSubscribing, 
+    handleSubscribe 
+  } = useSubscribe(
+    owner ? { id: owner } : null,
+    channel?.subscribersCount,
+    channel?.isSubscribed
+  );
 
   return (
     <div className="flex h-screen w-full bg-gradient-to-br from-gray-50 to-blue-50">
@@ -335,25 +281,18 @@ const Channel = () => {
                   <p className="text-gray-600">@{channel.username}</p>
                   <div className="flex items-center mt-2 space-x-4">
                     <div className="text-sm">
-                      <span className="font-bold">{channel.subscribersCount}</span> subscribers
+                      <span className="font-bold">{subscribersCount}</span> subscribers
                     </div>
                     <div className="text-sm">
                       <span className="font-bold">{channel.channelsSubscribedToCount}</span> subscriptions
                     </div>
                   </div>
                 </div>
-                
-                <button 
-                    onClick={handleSubscribe}
-                    disabled={isSubscribing}
-                    className={`px-4 py-2 rounded-md font-medium ${
-                      isSubscribing ? 'bg-gray-300 text-gray-500' : 
-                      isSubscribed ? 'bg-gray-200 text-gray-800 hover:bg-gray-300' : 
-                      'bg-red-600 text-white hover:bg-red-700'
-                    }`}
-                  >
-                    {isSubscribing ? 'Processing...' : isSubscribed ? 'Subscribed' : 'Subscribe'}
-                  </button>
+                <SubscribeButton 
+      isSubscribed={isSubscribed} 
+      isSubscribing={isSubscribing} 
+      onClick={handleSubscribe} 
+    />
             </div>
             
             {/* Tabs */}

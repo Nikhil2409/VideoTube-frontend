@@ -15,11 +15,14 @@ import PlaylistView from "./components/PlaylistView";
 import ChatPage from "./components/chat/ChatPage.jsx";
 import TweetCreate from "./components/tweet/TweetCreate";
 import TweetShow from "./components/tweet/TweetShow.jsx";
+import { ReduxProvider } from './ReduxProvider';
+import { AuthProvider } from "./context/AuthContext.jsx";
 
 function App() {
   return (
-    <Routes>
-      {/* Auth Routes */}
+    <ReduxProvider>
+      <AuthProvider>
+       <Routes>
       <Route path="/" element={<AuthPage />} />
       <Route path="/login" element={<AuthPage />} />
       <Route path="/register" element={<RegisterUser />} />
@@ -45,7 +48,9 @@ function App() {
       <Route path="/tweet/:tweetId" element={<TweetShow />} />
 
       <Route path="/chat" element={<ChatPage />} />
-    </Routes>
+      </Routes>
+      </AuthProvider>
+    </ReduxProvider>
   );
 }
 
