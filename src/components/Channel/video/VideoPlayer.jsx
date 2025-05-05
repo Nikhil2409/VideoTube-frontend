@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext.jsx";
-import { Navbar } from "../Navbar.jsx";
-import { Button } from "../ui/button.jsx";
-import { Card, CardContent } from "../ui/card";
-import { Textarea } from "../ui/textarea";
+import { useAuth } from "../../../context/AuthContext.jsx";
+import { Navbar } from "../../Navbar.jsx";
+import { Button } from "../../ui/button.jsx";
+import { Card, CardContent } from "../../ui/card.jsx";
+import { Textarea } from "../../ui/textarea.jsx";
 import {
   ThumbsUp,
   MessageSquare,
@@ -24,9 +24,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
-import { useSubscribe } from "../../hooks/useSubscribe";
-import SubscribeButton from "../ui/subscribeButton.jsx";
+} from "../../ui/dropdown-menu.jsx";
+import { useSubscribe } from "../../../hooks/useSubscribe.js";
+import SubscribeButton from "../../ui/subscribeButton.jsx";
 
 const api = axios.create({
   baseURL: process.env.REACT_APP_SERVER_URL || "http://localhost:3900",

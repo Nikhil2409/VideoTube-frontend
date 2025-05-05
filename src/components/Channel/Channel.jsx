@@ -1,18 +1,9 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import {
-  Users,
-  Heart,
-  MessageSquare,
-  Share2,
-  Eye,
-  User,
-  Clock,
-} from "lucide-react";
+import { Users, MessageSquare, Eye, User, Clock } from "lucide-react";
 import { Navbar } from "../Navbar.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
-import { set } from "date-fns";
 import { List } from "lucide-react";
 import { Sidebar } from "../Sidebar";
 import { useSubscribe } from "../../hooks/useSubscribe";
@@ -119,7 +110,6 @@ const DUMMY_PLAYLISTS = [
 const Channel = () => {
   const { username } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [owner, setOwner] = useState(null);
   const [channel, setChannel] = useState(null);
@@ -151,7 +141,6 @@ const Channel = () => {
         console.log("channel");
         console.log(response);
         setOwner(response.data.data.id);
-        const accessToken = username.accessToken;
         // Fetch videos for this channel
         const videoResponse = await api.get(
           `/api/v1/videos/user/${username}`,
