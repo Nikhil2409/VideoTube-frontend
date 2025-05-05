@@ -555,7 +555,7 @@ function TweetShow() {
   // Use our subscribe hook instead of local state
   const { isSubscribed, subscribersCount, isSubscribing, handleSubscribe } =
     useSubscribe(
-      owner,
+      owner ? { id: owner.id } : null,
       owner?.subscribersCount || 0,
       owner?.isSubscribed || false
     );
