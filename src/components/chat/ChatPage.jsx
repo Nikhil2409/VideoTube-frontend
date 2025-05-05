@@ -112,7 +112,7 @@ const ChatPage = () => {
     const newSocket = io(process.env.REACT_APP_SERVER_URL, {
       withCredentials: true,
       query: {
-        userId: user?._id || username, // Use user ID if available, otherwise username
+        userId: user?.id || username, // Use user ID if available, otherwise username
         username: username,
       },
     });
@@ -136,6 +136,18 @@ const ChatPage = () => {
             type: "message",
           },
         ]);
+      }
+    });
+
+    newSocket.on("room-count", (data) => {
+      console.log(
+        `Received room count for ${data.roomId}: ${data.count} members`
+      );
+
+      // Only update the count if this is for our current room
+      if (room && data.roomId.toLowerCase() === room.toLowerCase() && joined) {
+        console.log(`Updating room members count to: ${data.count}`);
+        setRoomMembers(data.count);
       }
     });
 
@@ -225,12 +237,9 @@ const ChatPage = () => {
             type: "system",
           },
         ]);
-
-        // Update room members count
-        setRoomMembers((prev) => prev + 1);
       }
 
-      // Request updated online users list
+      // Always request updated online users list to refresh member counts
       newSocket.emit("get-online-users");
     });
 
@@ -245,12 +254,9 @@ const ChatPage = () => {
             type: "system",
           },
         ]);
-
-        // Update room members count
-        setRoomMembers((prev) => Math.max(0, prev - 1));
       }
 
-      // Request updated online users list
+      // Always request updated online users list to refresh member counts
       newSocket.emit("get-online-users");
     });
 
@@ -258,10 +264,16 @@ const ChatPage = () => {
     newSocket.on("online-users", (users) => {
       // Filter out current user from the online users list
       const filteredUsers = users.filter(
-        (u) => u.userId !== user?._id && u.username !== username
+        (u) => u.userId !== user?.id && u.username !== username
       );
       console.log("Online users received:", filteredUsers);
       setOnlineUsers(filteredUsers);
+
+      // Update room members count based on users in the current room
+      if (room && joined) {
+        const usersInRoom = users.filter((u) => u.currentRoom === room);
+        setRoomMembers(usersInRoom.length);
+      }
     });
 
     newSocket.on("user-typing", (data) => {
@@ -302,7 +314,7 @@ const ChatPage = () => {
       }
       newSocket.disconnect();
     };
-  }, [username, user?._id, activeTab, room, selectedUser, messageStatus]);
+  }, [username, user?.id, activeTab, room, selectedUser, messageStatus]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -352,8 +364,8 @@ const ChatPage = () => {
       };
       setMessages([joinMessage]);
 
-      // Request online users
-      socket.emit("get-online-users");
+      // Explicitly request room count after joining
+      socket.emit("get-room-count", room);
     }
   };
 
@@ -366,7 +378,7 @@ const ChatPage = () => {
     if (activeTab === "room" && joined) {
       const messageData = {
         content: message,
-        senderId: user?._id || username,
+        senderId: user?.id || username,
         senderName: username,
         roomId: room,
         timestamp: new Date().toISOString(),
@@ -387,7 +399,7 @@ const ChatPage = () => {
       // Send private message
       const privateMessageData = {
         content: message,
-        senderId: user?._id || username,
+        senderId: user?.id || username,
         senderName: username,
         receiverId: selectedUser,
         messageId: messageId,
@@ -441,14 +453,14 @@ const ChatPage = () => {
     // Explicitly stop typing indicator on the server
     if (activeTab === "room") {
       socket.emit("typing", {
-        userId: user?._id || username,
+        userId: user?.id || username,
         username: username,
         roomId: room,
         isTyping: false,
       });
     } else if (activeTab === "dm" && selectedUser) {
       socket.emit("typing", {
-        userId: user?._id || username,
+        userId: user?.id || username,
         username: username,
         receiverId: selectedUser,
         isTyping: false,
@@ -467,14 +479,14 @@ const ChatPage = () => {
       setIsTyping(true);
       if (activeTab === "room") {
         socket.emit("typing", {
-          userId: user?._id || username,
+          userId: user?.id || username,
           username: username,
           roomId: room,
           isTyping: true,
         });
       } else if (activeTab === "dm" && selectedUser) {
         socket.emit("typing", {
-          userId: user?._id || username,
+          userId: user?.id || username,
           username: username,
           receiverId: selectedUser,
           isTyping: true,
@@ -492,14 +504,14 @@ const ChatPage = () => {
       if (socket) {
         if (activeTab === "room") {
           socket.emit("typing", {
-            userId: user?._id || username,
+            userId: user?.id || username,
             username: username,
             roomId: room,
             isTyping: false,
           });
         } else if (activeTab === "dm" && selectedUser) {
           socket.emit("typing", {
-            userId: user?._id || username,
+            userId: user?.id || username,
             username: username,
             receiverId: selectedUser,
             isTyping: false,
@@ -511,6 +523,12 @@ const ChatPage = () => {
 
   const leaveRoom = () => {
     socket.emit("leave-room", room);
+
+    // Update socket query to indicate user is not in any room
+    if (socket.io.opts.query) {
+      socket.io.opts.query.currentRoom = "";
+    }
+
     setJoined(false);
     setRoom("");
     setMessages([]);
@@ -518,6 +536,10 @@ const ChatPage = () => {
     setTypingUsers([]);
     setActiveTab("room");
     setShowJoinScreen(true);
+
+    // Request updated user list to refresh member counts for all clients
+    socket.emit("get-online-users");
+
     // Don't reset selectedUser to allow DM to persist when leaving a room
   };
 
