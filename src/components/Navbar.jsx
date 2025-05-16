@@ -36,7 +36,6 @@ import {
 } from "./ui/alert-dialog";
 import { toast } from "./ui/use-toast";
 import axios from "axios";
-import { cacheUtils } from "./utils/cacheUtils";
 import {
   Dialog,
   DialogContent,
@@ -85,10 +84,6 @@ function Navbar({ onDataDelete, toggleSidebar }) {
         variant: "destructive",
       });
 
-      // Clear local cache
-      cacheUtils.clearUserCache(user.id);
-
-      // Trigger dashboard refresh if callback is provided
       if (onDataDelete) {
         onDataDelete();
       }
@@ -104,11 +99,6 @@ function Navbar({ onDataDelete, toggleSidebar }) {
   };
   const handleLogout = async () => {
     try {
-      console.log(localStorage);
-      console.log(user.id);
-      cacheUtils.clearUserCache(user.id);
-      await api.post("/api/v1/users/logout", {}, { withCredentials: true });
-      console.log(localStorage);
       logout();
       navigate("/login");
     } catch (error) {

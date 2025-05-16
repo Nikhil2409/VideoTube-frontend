@@ -122,7 +122,7 @@ function VideoPlayer() {
       // Extract video data from the response
       const videoData = response.data.data;
 
-      console.log("Video data:", videoData);
+      console.log("Video data:", response);
       // Set video data
       setVideo(videoData);
 

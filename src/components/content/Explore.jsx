@@ -50,78 +50,6 @@ function ExplorePage() {
     setIsSidebarVisible((prev) => !prev);
   };
 
-  // Dummy data for when API calls fail
-  const DUMMY_VIDEOS = [
-    {
-      _id: "vid123",
-      id: "vid123",
-      title: "Building a YouTube Clone with React and Node.js",
-      description:
-        "In this tutorial, we build a complete YouTube clone using React for the frontend and Node.js for the backend.",
-      videoFile:
-        "https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4",
-      thumbnail: "https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0",
-      views: 1248,
-      duration: 754,
-      createdAt: "2024-02-15T12:00:00Z",
-      owner: "user123",
-      isPublished: true,
-    },
-    {
-      _id: "vid124",
-      id: "vid124",
-      title: "Advanced CSS Techniques for Modern Web Design",
-      description:
-        "Learn advanced CSS techniques to create stunning web designs.",
-      videoFile: "https://sample-videos.com/video124/mp4/720/sample.mp4",
-      thumbnail: "https://images.unsplash.com/photo-1587440871875-191322ee64b0",
-      views: 982,
-      duration: 921,
-      createdAt: "2024-02-10T14:30:00Z",
-      owner: "user124",
-      isPublished: false,
-    },
-  ];
-
-  const DUMMY_TWEETS = [
-    {
-      _id: "tweet123",
-      id: "tweet123",
-      content:
-        "Just launched a new video about React performance optimization. Check it out on my channel!",
-      likes: 47,
-      comments: 8,
-      views: 120,
-      createdAt: "2024-02-16T15:30:00Z",
-      owner: "user123",
-      isPublished: true,
-    },
-    {
-      _id: "tweet124",
-      id: "tweet124",
-      content:
-        "What's your favorite JavaScript framework in 2024? Reply with your choice and why!",
-      likes: 32,
-      comments: 24,
-      views: 85,
-      createdAt: "2024-02-14T09:15:00Z",
-      owner: "user124",
-      isPublished: true,
-    },
-    {
-      _id: "tweet125",
-      id: "tweet125",
-      content:
-        "Working on a new tutorial series about building a full-stack social media platform. What features would you like to see covered?",
-      likes: 56,
-      comments: 18,
-      views: 210,
-      createdAt: "2024-02-13T11:45:00Z",
-      owner: "user123",
-      isPublished: false,
-    },
-  ];
-
   // User data helper function
   const getUserForContent = async (item) => {
     if (!item) return null;
@@ -194,7 +122,6 @@ function ExplorePage() {
               }
             });
           } else {
-            setVideos(DUMMY_VIDEOS);
             setError(
               "No videos found or invalid response. Showing sample videos."
             );
@@ -238,24 +165,17 @@ function ExplorePage() {
 
               setTweets(processedTweets);
             } else {
-              setTweets(DUMMY_TWEETS);
               setError(
                 "No tweets found or invalid response. Showing sample tweets."
               );
             }
           } catch (error) {
             console.error("Error fetching tweets:", error);
-            setTweets(DUMMY_TWEETS);
             setError("Failed to fetch tweets. Showing sample content.");
           }
         }
       } catch (error) {
         console.error(`Error fetching ${contentType}:`, error);
-        if (contentType === "videos") {
-          setVideos(DUMMY_VIDEOS);
-        } else {
-          setTweets(DUMMY_TWEETS);
-        }
         setError(`Failed to fetch ${contentType}. Showing sample content.`);
       } finally {
         setIsLoading(false);
@@ -433,33 +353,6 @@ function ExplorePage() {
     if (type !== contentType) {
       setContentType(type);
       setIsLoading(true);
-    }
-  };
-
-  const handleFixViews = async () => {
-    try {
-      setIsFixingViews(true);
-
-      const response = await api("/api/v1/admin/fix-view-counts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        toast.success("View counts fixed successfully!");
-        window.location.reload();
-      } else {
-        toast.error(data.error || "Failed to fix view counts");
-      }
-    } catch (error) {
-      console.error("Error fixing view counts:", error);
-      toast.error("An error occurred while fixing view counts");
-    } finally {
-      setIsFixingViews(false);
     }
   };
 

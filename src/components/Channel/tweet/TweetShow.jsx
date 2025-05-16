@@ -6,7 +6,6 @@ import { Button } from "../../ui/button.jsx";
 import { Card, CardContent } from "../../ui/card.jsx";
 import { Textarea } from "../../ui/textarea.jsx";
 import {
-  ThumbsUp,
   MessageSquare,
   Share2,
   ChevronLeft,
@@ -30,17 +29,6 @@ const api = axios.create({
   baseURL: process.env.REACT_APP_SERVER_URL || "http://localhost:3900",
   withCredentials: true,
 });
-
-// Dummy data for testing when API calls fail
-const DUMMY_TWEET = {
-  id: "tweet123",
-  content:
-    "Just launched my new project using React and Node.js! Check it out at https://example.com #webdev #javascript",
-  media: "https://images.unsplash.com/photo-1555099962-4199c345e5dd",
-  likes: 48,
-  createdAt: "2024-02-15T12:00:00Z",
-  owner: "user123",
-};
 
 function TweetShow() {
   const { tweetId } = useParams();
@@ -99,7 +87,6 @@ function TweetShow() {
       })
     );
   };
-
   // Function to fetch tweet details
   const fetchTweetDetails = async () => {
     if (!tweetId) return;
@@ -108,44 +95,22 @@ function TweetShow() {
     setError("");
 
     try {
-      const accessToken = user?.accessToken;
-      const headers = accessToken
-        ? { Authorization: `Bearer ${accessToken}` }
-        : {};
-
       // API call to get tweet data
-      const response = await api.get(`/api/v1/tweets/${tweetId}`, { headers });
-
-      // Extract tweet data from the response
+      const response = await api.get(`/api/v1/tweets/${tweetId}`);
       const tweetData = response.data.data;
-
-      console.log("Tweet data:", tweetData);
-      // Set tweet data
+      console.log("Tweet data:", response);
       setTweet(tweetData);
-
-      // Extract owner data
       if (tweetData.owner) {
         setOwner(tweetData.owner);
       }
-      // Extract engagement metrics
       setLikeCount(tweetData.likesCount || 0);
-      setCommentCount(tweetData.commentsCount || 0);
       setIsLiked(tweetData.isLiked || false);
     } catch (error) {
-      console.error("Error fetching tweet:", error);
-      // Use dummy data if API fails
-      setTweet(DUMMY_TWEET);
-      setOwner(null);
-      setIsLiked(false);
-      setLikeCount(DUMMY_TWEET.likes);
-      setCommentCount(0);
-      setError("Failed to fetch tweet data. Using placeholder content.");
+      setError("Failed to fetch tweet data");
     } finally {
       setIsLoading(false);
     }
   };
-
-  // Map comment from backend format to frontend format
   const mapComment = (backendComment) => {
     if (!backendComment) return null;
 
@@ -187,48 +152,21 @@ function TweetShow() {
     if (!tweetId) return;
 
     try {
-      const accessToken = user?.accessToken;
-      const headers = accessToken
-        ? { Authorization: `Bearer ${accessToken}` }
-        : {};
-
       // Add pagination parameters
       const page = 1; // Start with first page
       const limit = 50; // Reasonable default limit
 
       const response = await api.get(
-        `/api/v1/comments/tweet/${tweetId}?page=${page}&limit=${limit}`,
-        { headers }
+        `/api/v1/comments/tweet/${tweetId}?page=${page}&limit=${limit}`
       );
+      const commentsArray = response.data.comments || [];
+      const mappedComments = commentsArray
+        .map(mapComment)
+        .filter((comment) => comment !== null);
 
-      if (response.data.success) {
-        const commentData = response.data.data;
-        console.log("Raw comment data:", commentData);
-
-        // Handle different possible response structures
-        let commentsArray = [];
-        if (Array.isArray(commentData)) {
-          commentsArray = commentData;
-        } else if (
-          commentData.comments &&
-          Array.isArray(commentData.comments)
-        ) {
-          commentsArray = commentData.comments;
-        } else if (typeof commentData === "object") {
-          // If single comment object is returned
-          commentsArray = [commentData];
-        }
-
-        // Map the backend comments to the frontend format, filtering out any null values
-        const mappedComments = commentsArray
-          .map(mapComment)
-          .filter((comment) => comment !== null);
-
-        console.log("Mapped comments:", mappedComments);
-        setComments(mappedComments);
-        setCommentCount(commentData.totalComments || mappedComments.length);
-        setCommentsError("");
-      }
+      setComments(mappedComments);
+      setCommentCount(mappedComments.length);
+      setCommentsError("");
     } catch (error) {
       console.error("Error fetching comments:", error);
       setCommentsError("Failed to load comments");
@@ -241,7 +179,6 @@ function TweetShow() {
       navigate("/login");
       return;
     }
-
     // Find the comment in state
     const commentToUpdate = comments.find(
       (comment) => comment.id === commentId
@@ -268,16 +205,7 @@ function TweetShow() {
     );
 
     try {
-      const accessToken = user.accessToken;
-
-      // Call the API to toggle like
-      const response = await api.post(
-        `/api/v1/likes/toggle/c/${commentId}`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }
-      );
+      const response = await api.post(`/api/v1/likes/toggle/c/${commentId}`);
 
       // Update UI from server response if available
       if (response.data && response.data.data) {
@@ -325,20 +253,10 @@ function TweetShow() {
       if (!tweetId || !tweet || viewCountUpdated.current) return;
 
       try {
-        const accessToken = user?.accessToken;
-        const headers = accessToken
-          ? { Authorization: `Bearer ${accessToken}` }
-          : {};
-
-        await api.patch(
-          `/api/v1/tweets/incrementViews/${tweetId}`,
-          {},
-          { headers }
-        );
+        await api.patch(`/api/v1/tweets/incrementViews/${tweetId}`);
         viewCountUpdated.current = true;
       } catch (error) {
         console.error("Error updating view count:", error);
-        // Failing to update view count is non-critical, so we don't show an error
       }
     };
 
@@ -361,22 +279,13 @@ function TweetShow() {
     setIsSubmittingComment(true);
 
     try {
-      const accessToken = user.accessToken;
-
-      const response = await api.post(
-        "/api/v1/comments/tweet",
-        {
-          tweetId,
-          content: newComment,
-        },
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }
-      );
+      const response = await api.post("/api/v1/comments/tweet", {
+        tweetId,
+        content: newComment,
+      });
 
       if (response.data.success) {
         const newCommentData = response.data.data;
-        console.log("New comment response:", newCommentData);
 
         // Create properly formatted comment object
         const commentForDisplay = mapComment(newCommentData);
@@ -405,21 +314,12 @@ function TweetShow() {
     }
 
     try {
-      const accessToken = user.accessToken;
-
-      const response = await api.patch(
-        `/api/v1/comments/tweet/${commentId}`,
-        {
-          text: editedCommentContent,
-        },
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }
-      );
+      const response = await api.patch(`/api/v1/comments/tweet/${commentId}`, {
+        text: editedCommentContent,
+      });
 
       if (response.data.success) {
         const updatedComment = response.data.data;
-        console.log("Updated comment response:", updatedComment);
 
         // Create a properly formatted updated comment
         const mappedUpdatedComment = mapComment(updatedComment);
@@ -457,11 +357,10 @@ function TweetShow() {
     if (!user) return;
 
     try {
-      const accessToken = user.accessToken;
-
-      const response = await api.delete(`/api/v1/comments/tweet/${commentId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const response = await api.delete(
+        `/api/v1/comments/tweet/${commentId}`,
+        {}
+      );
 
       if (response.data.success) {
         // Remove the comment from the list
@@ -535,14 +434,7 @@ function TweetShow() {
     setLikeCount((prevCount) => (isLiked ? prevCount - 1 : prevCount + 1));
 
     try {
-      const accessToken = user.accessToken;
-      await api.post(
-        `/api/v1/likes/toggle/t/${tweetId}`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }
-      );
+      await api.post(`/api/v1/likes/toggle/t/${tweetId}`);
     } catch (error) {
       console.error("Error toggling like:", error);
       // Revert optimistic update on error

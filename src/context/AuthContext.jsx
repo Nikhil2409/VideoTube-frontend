@@ -1,12 +1,14 @@
-// AuthContext.js - Improved version with consistent auth handling
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import api from './api-client'; 
+import React, { createContext, useState, useContext, useEffect } from "react";
+import axios from "axios";
 
-// Create Auth Context
 const AuthContext = createContext(null);
 
-// Custom hook to use the auth context
 export const useAuth = () => useContext(AuthContext);
+
+const api = axios.create({
+  baseURL: process.env.REACT_APP_SERVER_URL || "http://localhost:3900",
+  withCredentials: true,
+});
 
 // Provider component
 export const AuthProvider = ({ children }) => {
@@ -19,59 +21,72 @@ export const AuthProvider = ({ children }) => {
     const initializeAuth = async () => {
       try {
         // Check if we have a token
-        const token = localStorage.getItem('accessToken');
-        
+        const token = localStorage.getItem("accessToken");
+
         if (!token) {
           setLoading(false);
           return;
         }
-        
+
         // Validate token by fetching current user
-        const response = await api.get('/api/v1/users/current-user');
-        
+        const response = await api.get("/api/v1/users/current-user");
+
         if (response.data?.data) {
           setUser(response.data.data);
           setIsAuthenticated(true);
         }
       } catch (error) {
-        console.error('Auth initialization error:', error);
-        
+        console.error("Auth initialization error:", error);
+
         // Clear invalid auth data
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('userId');
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("userId");
       } finally {
         setLoading(false);
       }
     };
-    
+
     initializeAuth();
   }, []);
 
   // Login function - stores token and user data
-  const login = (token, userData) => {
-    if (!token) {
-      console.error('Login failed: No token provided');
-      return false;
-    }
-    
+  const login = async ({ type = "credentials", payload }) => {
     try {
-      // Store token in localStorage
-      localStorage.setItem('accessToken', token);
-      
-      // If we have user data, use it directly
-      if (userData) {
-        setUser(userData);
-        if (userData.id) {
-          localStorage.setItem('userId', userData.id);
-        }
+      let response;
+
+      if (type === "credentials") {
+        response = await api.post("/api/v1/users/login", payload);
+      } else if (type === "google") {
+        response = await api.post("/api/v1/users/google-auth", {
+          token: payload,
+        });
       }
-      
-      // Set auth state
+
+      const { accessToken, user } = response?.data?.data || {};
+
+      if (!accessToken) {
+        throw new Error("No access token received.");
+      }
+
+      // Store token
+      localStorage.setItem("accessToken", accessToken);
+      if (user?.id) {
+        localStorage.setItem("userId", user.id);
+      }
+
+      setUser(user);
       setIsAuthenticated(true);
-      return true;
+
+      return { success: true, user };
     } catch (error) {
-      console.error('Login error:', error);
-      return false;
+      console.error("Login error:", error);
+      return {
+        success: false,
+        message:
+          error.response?.data?.message ||
+          error.message ||
+          "Login failed. Please try again.",
+      };
     }
   };
 
@@ -79,14 +94,14 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       // Call logout API
-      await api.post('/api/v1/users/logout');
+      await api.post("/api/v1/users/logout");
     } catch (error) {
-      console.error('Logout API error:', error);
+      console.error("Logout API error:", error);
       // Continue with local logout even if API call fails
     } finally {
       // Clear all auth data
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('userId');
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("userId");
       setUser(null);
       setIsAuthenticated(false);
     }
@@ -98,14 +113,10 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated,
     loading,
     login,
-    logout
+    logout,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export default AuthContext;

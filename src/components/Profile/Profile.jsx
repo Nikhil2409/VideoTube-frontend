@@ -15,7 +15,7 @@ import { Button } from "../ui/button.jsx";
 const Profile = () => {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [watchHistory, setWatchHistory] = useState([]);
-  
+
   const navigate = useNavigate();
   const { logout } = useAuth();
 
@@ -35,7 +35,7 @@ const Profile = () => {
       totalTweets: "",
     },
   });
-  
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -50,30 +50,29 @@ const Profile = () => {
       try {
         setLoading(true);
         const token = Cookies.get("accessToken");
-        
+
         // Fetch user profile data
-        const userResponse = await api.get("/api/v1/users/current-user", { 
-        });
-        
+        const userResponse = await api.get("/api/v1/users/current-user", {});
+
         const userData = userResponse.data.data;
         console.log(userResponse);
-        
+
         // Fetch user stats
-        const statsResponse = await api.get(`/api/v1/dashboard/stats/${userData.id}`, {
-        });
-        
+        const statsResponse = await api.get(
+          `/api/v1/dashboard/stats/${userData.id}`,
+          {}
+        );
+
         // Update user state with profile and stats data
         setUser({
           ...userData,
           stats: statsResponse.data.data,
         });
-        
+
         // Fetch watch history
-        const historyResponse = await api.get("/api/v1/users/history", {
-        });
+        const historyResponse = await api.get("/api/v1/users/history", {});
         //console.log("history response"  + historyResponse.data.data.results);
         setWatchHistory(historyResponse.data.data.results || []);
-        
       } catch (err) {
         console.error("Error fetching user data:", err);
         setError("Failed to load profile data. Please try again later.");
@@ -118,14 +117,9 @@ const Profile = () => {
 
     return "text-base";
   };
-  
+
   const handleLogout = async () => {
     try {
-      const token = Cookies.get("accessToken");
-      await api.post(
-        "/api/v1/users/logout",
-        {},
-      );
       logout();
       navigate("/login");
     } catch (error) {
@@ -180,8 +174,8 @@ const Profile = () => {
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-indigo-100">
       {/* Back Button */}
       <div className="absolute top-4 left-4 z-10">
-        <button 
-          onClick={() => navigate(-1)} 
+        <button
+          onClick={() => navigate(-1)}
           className="bg-white/80 hover:bg-white transition-colors rounded-full p-2 shadow-md flex items-center justify-center"
         >
           <ArrowLeft className="w-6 h-6 text-gray-700" />
@@ -290,11 +284,14 @@ const Profile = () => {
                       key={video.id}
                       className="flex gap-3 items-center bg-gradient-to-r from-gray-50 to-blue-50 p-3 rounded-lg shadow-sm hover:shadow-md transition-shadow"
                       onClick={() => navigate(`/video/${video.videoId}`)}
-                      style={{ cursor: 'pointer' }}
+                      style={{ cursor: "pointer" }}
                     >
                       <div className="w-24 h-16 rounded-md flex-shrink-0 shadow-sm overflow-hidden">
-                        <img 
-                          src={video.video.thumbnail || "https://via.placeholder.com/150x100"}
+                        <img
+                          src={
+                            video.video.thumbnail ||
+                            "https://via.placeholder.com/150x100"
+                          }
                           alt={video.title}
                           className="w-full h-full object-cover"
                           loading="lazy"
@@ -305,8 +302,13 @@ const Profile = () => {
                           {video.title}
                         </h3>
                         <p className="text-xs sm:text-sm text-gray-500 truncate">
-                          {new Date(video.watchedAt || video.createdAt).toLocaleDateString()} at{" "}
-                          {new Date(video.watchedAt || video.createdAt).toLocaleTimeString([], {
+                          {new Date(
+                            video.watchedAt || video.createdAt
+                          ).toLocaleDateString()}{" "}
+                          at{" "}
+                          {new Date(
+                            video.watchedAt || video.createdAt
+                          ).toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
@@ -377,7 +379,9 @@ const Profile = () => {
                   </span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm">
-                  <span className="text-gray-700 font-medium">Total Tweets</span>
+                  <span className="text-gray-700 font-medium">
+                    Total Tweets
+                  </span>
                   <span className="font-semibold bg-white px-3 py-1 rounded-lg text-center min-w-16 shadow-sm text-blue-700">
                     {user.stats?.totalTweets || 0}
                   </span>

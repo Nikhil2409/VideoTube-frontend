@@ -1,33 +1,26 @@
 import React, { useState, useEffect } from "react";
-import { 
-  NavLink, 
-  useNavigate, 
-  useLocation 
-} from "react-router-dom";
-import { 
-  Home, 
-  User, 
-  LogOut, 
-  Compass, 
-  Heart, 
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
+import {
+  Home,
+  User,
+  LogOut,
+  Compass,
+  Heart,
   PlayCircle,
   ChevronLeft,
   ChevronRight,
-  Users
+  Users,
 } from "lucide-react";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogTitle, 
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
   DialogFooter,
-  DialogDescription 
+  DialogDescription,
 } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { useAuth } from "../context/AuthContext";
 import axios from "axios";
-import { cacheUtils } from "./utils/cacheUtils";
-import { set } from "date-fns";
-
 
 function Sidebar({ isVisible, toggleSidebar }) {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
@@ -44,18 +37,13 @@ function Sidebar({ isVisible, toggleSidebar }) {
 
   const handleLogout = async () => {
     try {
-      console.log(localStorage);
-      console.log(user.id);
-      cacheUtils.clearUserCache(user.id);
-      await api.post("/api/v1/users/logout", {}, { withCredentials: true });
-      console.log(localStorage);
       logout();
       navigate("/login");
     } catch (error) {
       console.error("Error logging out:", error);
     }
   };
-  
+
   // Sample subscribers - replace with actual data
   const dummySubscribers = [
     { id: 1, username: "JohnDoe", avatar: null },
@@ -65,64 +53,69 @@ function Sidebar({ isVisible, toggleSidebar }) {
     { id: 5, username: "MichaelBrown", avatar: null },
   ];
 
- useEffect(() => {
-  const fetchSubscribers = async () => {
-    try {
-      if(cacheSubscribers.lenght > 0){
-        setSubscribers(cacheSubscribers);
-      }
-      else{
-      const response = await api.get(`/api/v1/subscriptions`);
+  useEffect(() => {
+    const fetchSubscribers = async () => {
+      try {
+        if (cacheSubscribers.lenght > 0) {
+          setSubscribers(cacheSubscribers);
+        } else {
+          const response = await api.get(`/api/v1/subscriptions`);
 
-      if (response.data.data.users && Array.isArray(response.data.data.users)) {
-        setSubscribers(response.data.data.users);
-        setCacheSubscribers(response.data.data.users);
-      } else {
+          if (
+            response.data.data.users &&
+            Array.isArray(response.data.data.users)
+          ) {
+            setSubscribers(response.data.data.users);
+            setCacheSubscribers(response.data.data.users);
+          } else {
+            setSubscribers(dummySubscribers);
+          }
+        }
+      } catch (error) {
+        // Only use dummy data in case of error
         setSubscribers(dummySubscribers);
+        console.error("Error fetching subscribers:", error);
       }
-    }} catch (error) {
-      // Only use dummy data in case of error
-      setSubscribers(dummySubscribers);
-      console.error("Error fetching subscribers:", error);
-    }
-  };
-  
-  fetchSubscribers();
-}, [user, api]);
+    };
+
+    fetchSubscribers();
+  }, [user, api]);
 
   const menuItems = [
-    { 
-      icon: Home, 
-      label: "Home", 
+    {
+      icon: Home,
+      label: "Home",
       path: "/dashboard",
-      activeCondition: (path) => path === "/dashboard"
+      activeCondition: (path) => path === "/dashboard",
     },
-    { 
-      icon: Compass, 
-      label: "Explore", 
+    {
+      icon: Compass,
+      label: "Explore",
       path: "/explore",
-      activeCondition: (path) => path.startsWith("/explore")
+      activeCondition: (path) => path.startsWith("/explore"),
     },
-    { 
-      icon: PlayCircle, 
-      label: "My Content", 
+    {
+      icon: PlayCircle,
+      label: "My Content",
       path: "/my-content",
-      activeCondition: (path) => path.startsWith("/my-content")
+      activeCondition: (path) => path.startsWith("/my-content"),
     },
-    { 
-      icon: Heart, 
-      label: "Liked Content", 
+    {
+      icon: Heart,
+      label: "Liked Content",
       path: "/likedContent",
-      activeCondition: (path) => path ===  "/likedContent"
+      activeCondition: (path) => path === "/likedContent",
     },
   ];
 
   return (
-    <div className={`fixed top-0 left-0 h-full bg-white border-r shadow-lg transition-all duration-300 flex flex-col ${isVisible ? 'translate-x-0' : '-translate-x-full'}`} style={{ width: '256px' }}>
+    <div
+      className={`fixed top-0 left-0 h-full bg-white border-r shadow-lg transition-all duration-300 flex flex-col ${isVisible ? "translate-x-0" : "-translate-x-full"}`}
+      style={{ width: "256px" }}
+    >
       <div className="p-4 flex-shrink-0">
         <div className="mb-6 flex items-center space-x-3 px-2">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden">
-          </div>
+          <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden"></div>
         </div>
       </div>
 
@@ -135,9 +128,11 @@ function Sidebar({ isVisible, toggleSidebar }) {
               to={item.path}
               className={({ isActive }) => `
                 flex items-center gap-3 p-2 rounded-lg transition-all duration-200
-                ${item.activeCondition(location.pathname) 
-                  ? "bg-blue-50 text-blue-600 font-semibold" 
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"}
+                ${
+                  item.activeCondition(location.pathname)
+                    ? "bg-blue-50 text-blue-600 font-semibold"
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"
+                }
               `}
             >
               <item.icon className="w-5 h-5" />
@@ -152,17 +147,22 @@ function Sidebar({ isVisible, toggleSidebar }) {
         {/* Subscribers section */}
         <div className="mb-4">
           <h3 className="flex items-center gap-2 text-sm font-medium text-gray-500 mb-3 px-2">
-            <Users className="w-4 h-4" /> 
+            <Users className="w-4 h-4" />
             Subscriptions
           </h3>
           <div className="space-y-2">
             {subscribers.map((subscriber) => (
-              <div key={subscriber.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 transition-colors">
-                <div className="w-7 h-7 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden"
-                onClick={() => navigate(`/c/${subscriber.username}`)}>
+              <div
+                key={subscriber.id}
+                className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <div
+                  className="w-7 h-7 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden"
+                  onClick={() => navigate(`/c/${subscriber.username}`)}
+                >
                   {subscriber.avatar ? (
-                    <img 
-                      src={subscriber.avatar} 
+                    <img
+                      src={subscriber.avatar}
                       alt={`${subscriber.username}'s avatar`}
                       className="w-full h-full object-cover"
                     />
@@ -194,7 +194,11 @@ function Sidebar({ isVisible, toggleSidebar }) {
         className="absolute top-1/2 -right-3 bg-white border border-gray-200 rounded-full p-1 shadow-md"
         onClick={toggleSidebar}
       >
-        {isVisible ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        {isVisible ? (
+          <ChevronLeft className="w-4 h-4" />
+        ) : (
+          <ChevronRight className="w-4 h-4" />
+        )}
       </button>
 
       <Dialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
@@ -204,16 +208,13 @@ function Sidebar({ isVisible, toggleSidebar }) {
             Are you sure you want to log out of your account?
           </DialogDescription>
           <DialogFooter className="gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setShowLogoutDialog(false)}
             >
               Cancel
             </Button>
-            <Button 
-              variant="destructive" 
-              onClick={handleLogout}
-            >
+            <Button variant="destructive" onClick={handleLogout}>
               Logout
             </Button>
           </DialogFooter>

@@ -20,7 +20,6 @@ import {
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { cacheUtils } from "../utils/cacheUtils";
 
 // Create API instance outside component to avoid recreation
 const api = axios.create({
@@ -166,9 +165,7 @@ function Dashboard() {
   const navigate = useNavigate();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [activeTab, setActiveTab] = useState("videos");
-  const [channelStats, setChannelStats] = useState({});
   const [isLoading, setIsLoading] = useState(true);
-  const [lastRefreshed, setLastRefreshed] = useState(new Date());
   const [isWatchHistoryCleared, setIsWatchHistoryCleared] = useState(false);
   const [isSidebarVisible, setIsSidebarVisible] = useState(true);
 
@@ -202,7 +199,6 @@ function Dashboard() {
 
   const userId = user?.id;
   const accessToken = user?.accessToken;
-  const username = user?.username;
 
   // Pagination for Watch History
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -211,26 +207,14 @@ function Dashboard() {
   const totalPages = Math.ceil(watchHistory.length / itemsPerPage);
 
   const fetchDashboardData = useCallback(
-    async (showLoading = true, forceRefresh = false) => {
+    async (showLoading = true) => {
       if (!user?.id) return null;
-
-      const cacheKey = `dashboard_data_${user.id}`;
-
-      // Use cache only if not force refreshing and not initial load
-      if (!forceRefresh && !isInitialLoad) {
-        const cachedData = cacheUtils.get(cacheKey);
-        if (cachedData) {
-          setDashboardData(cachedData);
-          return cachedData;
-        }
-      }
 
       if (showLoading) setIsLoading(true);
       const controller = new AbortController();
       const signal = controller.signal;
 
       try {
-        // Fetch subscribers
         const subscribersResponse = await api
           .get(`/api/v1/subscriptions/u/${userId}`, {
             signal,
@@ -258,8 +242,6 @@ function Dashboard() {
           })
           .catch(() => ({ data: { data: [] } }));
 
-        console.log(watchHistoryResponse);
-
         //Fetch Comments
         const comments = await api.get(
           `/api/v1/comments/user/video/${userId}`,
@@ -277,9 +259,6 @@ function Dashboard() {
         const tweets = await api.get(`/api/v1/tweets/user/${userId}`, {
           signal,
         });
-        console.log(tweets);
-
-        console.log(comments);
 
         // Transform watch history data to match the expected format in your UI
         const formattedWatchHistory =
@@ -310,14 +289,6 @@ function Dashboard() {
           tweets: tweets.data.data || [],
         }));
 
-        // Update channel stats
-        setChannelStats({
-          totalVideos: dashboardVideosResponse.data?.data?.length || 0,
-          subscriberCount:
-            subscribersResponse.data?.data?.subscribers?.length || 0,
-        });
-
-        setLastRefreshed(new Date());
         if (showLoading) toast.success("Dashboard data refreshed");
       } catch (error) {
         if (error.name !== "AbortError") {
@@ -330,28 +301,13 @@ function Dashboard() {
         if (showLoading) setIsLoading(false);
       }
 
-      // Save to cache after update
-      cacheUtils.save(cacheKey, {
-        videos: dashboardData.videos || [],
-        likedVideos: dashboardData.likedVideos || [],
-        playlists: dashboardData.playlists || [],
-        subscribers: dashboardData.subscribers || [],
-        tweets: dashboardData.tweets || [],
-        comments: dashboardData.comments || [],
-        watchHistory: dashboardData.watchHistory || [],
-      });
-
       return () => controller.abort();
     },
     [accessToken, userId, user]
   );
 
   const refreshDashboardData = () => {
-    // Clear cache for the current user
-    cacheUtils.clearUserCache(user.id);
-
-    // Force a full refresh of dashboard data
-    fetchDashboardData(true, false);
+    fetchDashboardData(true);
   };
 
   useEffect(() => {
