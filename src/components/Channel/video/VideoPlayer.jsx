@@ -205,35 +205,13 @@ function VideoPlayer() {
         `/api/v1/comments/video/${videoId}?page=${page}&limit=${limit}`,
         { headers }
       );
-
-      if (response.data.success) {
-        const commentData = response.data.data;
-        console.log("Raw comment data:", commentData);
-
-        // Handle different possible response structures
-        let commentsArray = [];
-        if (Array.isArray(commentData)) {
-          commentsArray = commentData;
-        } else if (
-          commentData.comments &&
-          Array.isArray(commentData.comments)
-        ) {
-          commentsArray = commentData.comments;
-        } else if (typeof commentData === "object") {
-          // If single comment object is returned
-          commentsArray = [commentData];
-        }
-
-        // Map the backend comments to the frontend format, filtering out any null values
-        const mappedComments = commentsArray
-          .map(mapComment)
-          .filter((comment) => comment !== null);
-
-        console.log("Mapped comments:", mappedComments);
-        setComments(mappedComments);
-        setCommentCount(commentData.totalComments || mappedComments.length);
-        setCommentsError("");
-      }
+      const commentsArray = response.data.data.comments || [];
+      const mappedComments = commentsArray
+        .map(mapComment)
+        .filter((comment) => comment !== null);
+      setComments(mappedComments);
+      setCommentCount(mappedComments.length);
+      setCommentsError("");
     } catch (error) {
       console.error("Error fetching comments:", error);
       setCommentsError("Failed to load comments");
@@ -284,7 +262,6 @@ function VideoPlayer() {
           headers: { Authorization: `Bearer ${accessToken}` },
         }
       );
-
       // Only update UI from server response if the response contains valid data
       if (response.data && response.data.data) {
         // Get the accurate like status from the server response
