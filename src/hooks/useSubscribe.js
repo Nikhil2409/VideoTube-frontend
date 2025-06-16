@@ -85,12 +85,6 @@ export const useSubscribe = (owner, initialSubscribersCount = 0, initialIsSubscr
         ownerId, 
         accessToken: user.accessToken
       })).unwrap();
-      
-      // Remove cached data to ensure fresh fetch next time
-      if (!localIsSubscribed) {
-        localStorage.removeItem(`subscriptions_${user.id}`);
-        sessionStorage.removeItem(`channel_${ownerId}`);
-      }
     } catch (error) {
       console.error("Error in subscription toggle:", error);
       

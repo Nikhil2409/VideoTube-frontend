@@ -335,13 +335,8 @@ function Dashboard() {
     }
 
     try {
-      const accessToken = user.accessToken;
-
       const response = await api.delete(
-        `/api/v1/comments/video/edit/${commentId}`,
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }
+        `/api/v1/comments/video/edit/${commentId}`
       );
       if (response.data.success) {
         // Remove the comment from the local state
@@ -507,10 +502,6 @@ function Dashboard() {
 
   const handleRefresh = () => {
     fetchDashboardData(true, true);
-  };
-
-  const navigateToExplore = () => {
-    navigate("/explore");
   };
 
   // Show loading only on initial load when no data exists

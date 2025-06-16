@@ -16,31 +16,16 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Initialize auth state on component mount
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        // Check if we have a token
-        const token = localStorage.getItem("accessToken");
-
-        if (!token) {
-          setLoading(false);
-          return;
-        }
-
-        // Validate token by fetching current user
         const response = await api.get("/api/v1/users/current-user");
-
         if (response.data?.data) {
           setUser(response.data.data);
           setIsAuthenticated(true);
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
-
-        // Clear invalid auth data
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("userId");
       } finally {
         setLoading(false);
       }
@@ -67,13 +52,6 @@ export const AuthProvider = ({ children }) => {
       if (!accessToken) {
         throw new Error("No access token received.");
       }
-
-      // Store token
-      localStorage.setItem("accessToken", accessToken);
-      if (user?.id) {
-        localStorage.setItem("userId", user.id);
-      }
-
       setUser(user);
       setIsAuthenticated(true);
 
@@ -90,18 +68,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Logout function - clears token and user data
   const logout = async () => {
     try {
-      // Call logout API
       await api.post("/api/v1/users/logout");
     } catch (error) {
       console.error("Logout API error:", error);
-      // Continue with local logout even if API call fails
     } finally {
-      // Clear all auth data
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("userId");
       setUser(null);
       setIsAuthenticated(false);
     }
